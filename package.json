@@ -61,12 +61,5 @@
     "extends": [
       "@commitlint/config-conventional"
     ]
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "electron",
-      "esbuild",
-      "simple-git-hooks"
-    ]
   }
 }
