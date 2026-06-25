@@ -2,6 +2,8 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { initSecureStore } from './services/secure-store'
+import { registerAllIpc } from './ipc'
 
 function createWindow(): void {
   // Create the browser window.
@@ -41,6 +43,10 @@ function createWindow(): void {
 app.whenReady().then(() => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('org.hohu.app')
+
+  // 初始化安全存储 + 注册所有 IPC
+  initSecureStore()
+  registerAllIpc()
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.

@@ -18,8 +18,9 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Environment & local files
-.env
-.env.*
+# 提交共享配置 (.env / .env.development / .env.production)，仅忽略本地密钥
+.env.local
+.env.*.local
 *.local
 
 # TypeScript
