@@ -341,7 +341,7 @@ new BrowserWindow({
 - [x] Phase 1：请求层（主进程 HTTP 转发）+ 鉴权（Keychain）
 - [x] Phase 1：typed IPC + Preload 沙箱
 - [x] CLAUDE.md 框架文档
-- [ ] README 改写为"开发框架"定位（当前仍是脚手架默认文案）
+- [x] README 改写为"开发框架"定位（生态导航 / 架构图 / 已实现特性 / 路线图）
 - [ ] 文档站接入 hohu-admin-docs
 
 ---
