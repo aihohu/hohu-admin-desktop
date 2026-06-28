@@ -33,6 +33,7 @@
     "nanoid": "^5.1.14",
     "pinia": "^3.0.4",
     "qs": "^6.15.2",
+    "vue-i18n": "^11.4.6",
     "vue-router": "^5.1.0"
   },
   "devDependencies": {

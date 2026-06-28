@@ -135,12 +135,12 @@ docs/                              # 框架文档
 
 ## 6. 开发路线
 
-### Phase 1 — 让框架"能用"（与 web 对齐的基础设施）
+### Phase 1 — 让框架"能用"（与 web 对齐的基础设施）—— ✅ 完成
 
 - [x] **请求层 + 鉴权（Keychain 存 token）** —— 详见 6.1
 - [x] **typed IPC + Preload 沙箱** —— 详见 6.2
-- [ ] 动态路由 + RBAC
-- [ ] 布局 + 主题 + i18n
+- [x] **动态路由 + RBAC** —— memory history / glob 组件映射 / dual-mode / v-permission / @iconify/json 懒加载
+- [x] **布局 + 主题 + i18n** —— 暗黑模式 + 主色切换 + vue-i18n 中英文 + 面包屑 + Sider 折叠
 
 ---
 
@@ -342,6 +342,8 @@ new BrowserWindow({
 - [x] Phase 1：typed IPC + Preload 沙箱
 - [x] CLAUDE.md 框架文档
 - [x] README 改写为"开发框架"定位（生态导航 / 架构图 / 已实现特性 / 路线图）
+- [x] Phase 1：动态路由 + RBAC（memory history / glob / dual-mode / v-permission / icon 懒加载）
+- [x] Phase 1：布局 + 主题 + i18n（暗黑 / 主色 / 中英文 / 面包屑 / Sider 折叠）
 - [ ] 文档站接入 hohu-admin-docs
 
 ---

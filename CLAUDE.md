@@ -180,13 +180,13 @@ To skip hooks for WIP commits: `git commit --no-verify` (use sparingly).
 
 ## Roadmap Status
 
-Phase 1 (foundation) — **in progress**:
+Phase 1 (foundation) — **complete**:
 
 - ✅ Project bootstrap (code conventions, CI, hooks, LICENSE)
 - ✅ Request layer (main-process HTTP forwarder, flat result shape)
 - ✅ Auth (JWT login, token refresh, Keychain storage, auto-login)
 - ✅ Dynamic routes + RBAC (memory history, glob component mapping, dual-mode dynamic/static, v-permission)
-- ⏳ Layout + theme + i18n (next)
+- ✅ Layout + theme + i18n (dark mode, primary color, zh-cn/en-us, breadcrumb, sider collapse)
 
 See `docs/framework-design.md` for the full roadmap and design rationale.
 

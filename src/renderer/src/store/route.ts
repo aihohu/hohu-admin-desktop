@@ -4,6 +4,7 @@ import { router } from '../router'
 import { transformRoutes } from '../router/transform'
 import { fetchGetUserRoutes } from '../service/api/route'
 import { preloadIcons } from '../icons'
+import { translate } from '../composables/use-i18n'
 
 export interface MenuItem {
   /** = route.name */
@@ -108,6 +109,15 @@ export const useRouteStore = defineStore('route', {
       this.isInitAuthRoute = true
     },
 
+    /**
+     * 语言切换后重新翻译菜单 label（generateMenus 用的是 translate 非响应式）。
+     * 由 App.vue 的 locale watcher 调用。
+     */
+    regenerateMenus(): void {
+      if (this.authRoutes.length === 0) return
+      this.menus = this.generateMenus(this.authRoutes)
+    },
+
     /** 递归收集所有 meta.icon（用于预加载图标集） */
     collectIcons(routes: Api.Route.UserRoute[]): Array<string | undefined> {
       const result: Array<string | undefined> = []
@@ -174,7 +184,10 @@ export const useRouteStore = defineStore('route', {
 
       return {
         key: route.name,
-        label: route.meta?.title || route.name,
+        // i18n: 优先用 i18nKey 翻译，找不到回退到 meta.title，再回退到 route.name
+        label: route.meta?.i18nKey
+          ? translate(route.meta.i18nKey, route.meta?.title || route.name)
+          : route.meta?.title || route.name,
         icon: route.meta?.icon || undefined,
         // 外链和空目录的 routePath 留空
         routePath: isExternal || isEmptyDir ? '' : route.path,

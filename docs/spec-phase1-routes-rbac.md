@@ -1041,32 +1041,38 @@ pnpm add -D @iconify/json
 
 ## 11. 决策记录
 
-| 决策              | 选择                                                   | 理由                                                 |
-| ----------------- | ------------------------------------------------------ | ---------------------------------------------------- |
-| History 类型      | `createMemoryHistory`                                  | Electron 无 URL bar，最稳                            |
-| 文件路由          | **不用** @elegant-router                               | 引入复杂度大，glob 扫描足够                          |
-| 常量路由          | 前端写死                                               | 不依赖后端，启动更快                                 |
-| **路由模式**      | **dynamic（默认）+ static 可切换**                     | **fork 出去做独立应用也能用**                        |
-| 路由初始化时机    | 登录后 + 路由守卫双重保险                              | 处理刷新场景                                         |
-| 按钮权限          | v-if + hasPermission() 优先，v-permission 指令作为补充 | 响应式自动跟随 store 变化                            |
-| i18n              | 仅保留 i18nKey 字段，不翻译                            | 留给 Phase 1 第 4 项统一接入                         |
-| 单级路由表示      | `layout.x$view.y`                                      | 与 web 端约定一致                                    |
-| Token 预热        | `main.ts` 中 `app.use(router)` 前 `await loadTokens()` | 避免守卫首次 IPC 延迟                                |
-| ⚠️ **图标系统**   | **@iconify/json 懒加载**                               | 离线可用、覆盖 235 个图标集、自动适配后端任意 prefix |
-| ⚠️ Layout markRaw | 同步导入的组件必须 `markRaw`                           | 避免 Pinia reactive 化触发 Vue 警告                  |
-| ⚠️ 视图 fallback  | transform 时缺失视图自动 fallback 到 404               | 避免点击菜单无反应                                   |
-| ⚠️ 显式 `/` 路由  | constantRoutes 必须显式定义 `/` + pathMatch 放最后     | 否则初始导航被 pathMatch 抢匹配直接跳 404            |
-| ⚠️ Auth 同步恢复  | 守卫里同步调 `getUserInfo()`                           | 刷新后 Pinia state 丢失需重新拉                      |
+| 决策                   | 选择                                                     | 理由                                                                    |
+| ---------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------- |
+| History 类型           | `createMemoryHistory`                                    | Electron 无 URL bar，最稳                                               |
+| 文件路由               | **不用** @elegant-router                                 | 引入复杂度大，glob 扫描足够                                             |
+| 常量路由               | 前端写死                                                 | 不依赖后端，启动更快                                                    |
+| **路由模式**           | **dynamic（默认）+ static 可切换**                       | **fork 出去做独立应用也能用**                                           |
+| 路由初始化时机         | 登录后 + 路由守卫双重保险                                | 处理刷新场景                                                            |
+| 按钮权限               | v-if + hasPermission() 优先，v-permission 指令作为补充   | 响应式自动跟随 store 变化                                               |
+| i18n                   | 仅保留 i18nKey 字段，不翻译                              | 留给 Phase 1 第 4 项统一接入                                            |
+| 单级路由表示           | `layout.x$view.y`                                        | 与 web 端约定一致                                                       |
+| Token 预热             | `main.ts` 中 `app.use(router)` 前 `await loadTokens()`   | 避免守卫首次 IPC 延迟                                                   |
+| ⚠️ **图标系统**        | **@iconify/json 懒加载**                                 | 离线可用、覆盖 235 个图标集、自动适配后端任意 prefix                    |
+| ⚠️ Layout markRaw      | 同步导入的组件必须 `markRaw`                             | 避免 Pinia reactive 化触发 Vue 警告                                     |
+| ⚠️ 视图 fallback       | transform 时缺失视图自动 fallback 到 404                 | 避免点击菜单无反应                                                      |
+| ⚠️ 显式 `/` 路由       | constantRoutes 必须显式定义 `/` + pathMatch 放最后       | 否则初始导航被 pathMatch 抢匹配直接跳 404                               |
+| ⚠️ Auth 同步恢复       | 守卫里同步调 `getUserInfo()`                             | 刷新后 Pinia state 丢失需重新拉                                         |
+| ⚠️ **Sider 布局**      | **原生 `<aside>` + CSS class 切宽度，不用 NLayoutSider** | NLayoutSider 和 NMenu 双重 collapse 冲突导致折叠后图标不显示            |
+| ⚠️ **暗黑桥接**        | `useThemeVars()` 把 NaiveUI 主题映射到 CSS 变量          | 原生 HTML 元素不继承 NConfigProvider 的 provide/inject                  |
+| ⚠️ **i18n key 连字符** | 语言包 key 必须与后端 `route_name` 完全一致（含连字符）  | `system_operation-log` ≠ `system_operation_log`，vue-i18n 找不到会 warn |
+| ⚠️ **语言切换响应**    | locale 变化时手动调 `routeStore.regenerateMenus()`       | `translate()` 非响应式，菜单 label 需重新生成                           |
 
 ## 12. 与 web 端的差异（明确说明）
 
-| 维度         | web             | desktop                   | 差异原因                    |
-| ------------ | --------------- | ------------------------- | --------------------------- |
-| History      | web history     | memory history            | Electron 无 URL bar         |
-| 文件路由     | @elegant-router | glob 扫描                 | 减少依赖，框架更轻          |
-| 常量路由     | 后端拉          | 前端写死                  | 启动更快，不依赖后端        |
-| Token 存储   | localStorage    | safeStorage               | 已在 Phase 1 第 1 项决策    |
-| 路由数据来源 | HTTP（axios）   | HTTP（主进程 IPC 转发）   | 已在 Phase 1 第 1 项决策    |
-| 按钮权限     | 未实现          | **框架内置 v-permission** | desktop 率先实现            |
-| i18n 集成    | 已有            | 留 Phase 1 第 4 项        | 主题/i18n 一起做            |
-| 布局复杂度   | 6 种模式        | 1 种（vertical）          | 简化，Phase 1 第 4 项可扩展 |
+| 维度         | web                                    | desktop                             | 差异原因                             |
+| ------------ | -------------------------------------- | ----------------------------------- | ------------------------------------ |
+| History      | web history                            | memory history                      | Electron 无 URL bar                  |
+| 文件路由     | @elegant-router                        | glob 扫描                           | 减少依赖，框架更轻                   |
+| 常量路由     | 后端拉                                 | 前端写死                            | 启动更快，不依赖后端                 |
+| Token 存储   | localStorage                           | safeStorage                         | 已在 Phase 1 第 1 项决策             |
+| 路由数据来源 | HTTP（axios）                          | HTTP（主进程 IPC 转发）             | 已在 Phase 1 第 1 项决策             |
+| 按钮权限     | 未实现                                 | **框架内置 v-permission**           | desktop 率先实现                     |
+| i18n 集成    | 已有                                   | ✅ 已实现（vue-i18n + zh-cn/en-us） | Phase 1 第 4 项完成                  |
+| 布局复杂度   | 6 种模式                               | 1 种（vertical）                    | 简化，Phase 2 可扩展                 |
+| Sider 实现   | @sa/materials AdminLayout（CSS aside） | 原生 `<aside>` + CSS class          | 避免 NLayoutSider 双重 collapse 冲突 |
+| 暗黑桥接     | UnoCSS dark: 变体                      | `useThemeVars()` → CSS 变量         | 原生 HTML 元素不继承 NConfigProvider |
