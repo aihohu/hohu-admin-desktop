@@ -8,6 +8,7 @@ import { router } from './router'
 import { permission } from './directives/permission'
 import { loadTokens } from './service/token'
 import { i18n } from './locales'
+import { useThemeStore } from './store/theme'
 
 async function bootstrap(): Promise<void> {
   const app = createApp(App)
@@ -17,6 +18,9 @@ async function bootstrap(): Promise<void> {
 
   // ⚠️ 在 app.use(router) 之前预热 token，避免守卫首次导航的 IPC 延迟
   await loadTokens()
+
+  // 把 localStorage 的 darkMode 同步到主进程 nativeTheme，让原生标题栏 / scrollbar 跟随
+  useThemeStore().initNativeTheme()
 
   app.use(router)
   app.directive('permission', permission)

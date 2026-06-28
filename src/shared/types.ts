@@ -82,10 +82,19 @@ export interface StoreApi {
   delete: (key: keyof StoreSchema) => Promise<void>
 }
 
+/**
+ * Theme 桥：同步渲染层主题到主进程的 nativeTheme。
+ * 影响 OS 层 UI（标题栏、原生 scrollbar、原生右键菜单）。
+ */
+export interface ThemeApi {
+  setNativeSource: (source: 'system' | 'dark' | 'light') => Promise<void>
+}
+
 export interface AppApi {
   secureStore: SecureStoreApi
   http: HttpApi
   shell: ShellApi
   logger: LoggerApi
   store: StoreApi
+  theme: ThemeApi
 }

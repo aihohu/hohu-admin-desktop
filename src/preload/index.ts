@@ -50,12 +50,22 @@ const store = {
   delete: (key: keyof StoreSchema): Promise<void> => ipcRenderer.invoke('store:delete', key) as Promise<void>
 } as const
 
+/**
+ * Theme 桥：同步渲染层暗黑模式到主进程 nativeTheme。
+ * 影响 OS 层 UI（标题栏、原生 scrollbar、原生右键菜单）。
+ */
+const theme = {
+  setNativeSource: (source: 'system' | 'dark' | 'light'): Promise<void> =>
+    ipcRenderer.invoke('theme:setNativeSource', source) as Promise<void>
+} as const
+
 const api = {
   secureStore,
   http,
   shell,
   logger,
-  store
+  store,
+  theme
 }
 
 // contextIsolation 始终启用（见 main/index.ts 的 BrowserWindow 配置）
