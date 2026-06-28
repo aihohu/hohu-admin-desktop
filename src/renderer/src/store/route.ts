@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import { router } from '../router'
 import { transformRoutes } from '../router/transform'
 import { fetchGetUserRoutes } from '../service/api/route'
+import { preloadIcons } from '../icons'
 
 export interface MenuItem {
   /** = route.name */
@@ -70,19 +71,26 @@ export const useRouteStore = defineStore('route', {
         home = data.home
       }
 
-      this.setAuthRoutes(routes, home)
+      await this.setAuthRoutes(routes, home)
     },
 
     /**
      * 注册动态路由到 vue-router，并生成 menus / cacheRoutes。
+     * ⚠️ 先同步等待图标集加载完成，再设置 menus，避免 Icon 组件渲染时
+     * 图标不在内存而触发在线 API 请求（CSP 会拦截）。
      */
-    setAuthRoutes(routes: Api.Route.UserRoute[], home: string): void {
+    async setAuthRoutes(routes: Api.Route.UserRoute[], home: string): Promise<void> {
       // 先清掉之前注册的（用户切换场景）
       this.resetRoutes()
 
       this.authRoutes = routes
       this.home = home
       this.vueRoutes = transformRoutes(routes)
+
+      // 关键：在 menus 设置前预加载图标集
+      const allIcons = this.collectIcons(routes)
+      await preloadIcons(allIcons)
+
       this.menus = this.generateMenus(routes)
       this.cacheRoutes = this.generateCacheRoutes(routes)
 
@@ -98,6 +106,19 @@ export const useRouteStore = defineStore('route', {
       }
 
       this.isInitAuthRoute = true
+    },
+
+    /** 递归收集所有 meta.icon（用于预加载图标集） */
+    collectIcons(routes: Api.Route.UserRoute[]): Array<string | undefined> {
+      const result: Array<string | undefined> = []
+      const walk = (list: Api.Route.UserRoute[]): void => {
+        for (const r of list) {
+          result.push(r.meta?.icon ?? undefined)
+          if (r.children && r.children.length > 0) walk(r.children)
+        }
+      }
+      walk(routes)
+      return result
     },
 
     /** 重置：移除所有动态注册的路由，清空 store */
@@ -140,8 +161,9 @@ export const useRouteStore = defineStore('route', {
       if (route.meta?.hideInMenu) return null
 
       const isExternal = Boolean(route.meta?.href)
-      const isEmptyDir = route.component.startsWith('layout.') && (route.children ?? []).length === 0
       const isSingleLevel = route.component.includes('$')
+      // ⚠️ isEmptyDir 必须排除单级路由（layout.x$view.y 也会 startsWith('layout.')）
+      const isEmptyDir = !isSingleLevel && route.component.startsWith('layout.') && (route.children ?? []).length === 0
 
       // 子菜单（多级）
       let children: MenuItem[] | undefined

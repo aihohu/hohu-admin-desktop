@@ -25,9 +25,13 @@ export function setupRouteGuard(router: Router): void {
       return { path: '/login', query: { redirect: to.fullPath } }
     }
 
-    // 2. 已登录但未初始化动态路由 → 先初始化
+    // 2. 已登录但未初始化动态路由 → 先初始化（同时恢复用户信息）
     if (!routeStore.isInitAuthRoute) {
       try {
+        // 恢复用户信息（刷新后 Pinia 状态丢失，需要重新拉 getUserInfo）
+        if (!authStore.isLogin) {
+          await authStore.getUserInfo()
+        }
         await routeStore.initAuthRoutes()
       } catch {
         // 初始化失败（如 401）已在 store 内部触发 logout，这里跳登录
