@@ -28,10 +28,20 @@ const shell = {
   openExternal: (url: string): Promise<boolean> => ipcRenderer.invoke('shell:openExternal', url)
 } as const
 
+/**
+ * Logger 桥：渲染层只能写 error/warn。
+ * 常规 console.* 不进文件；只有未捕获错误才走这条 IPC。
+ */
+const logger = {
+  error: (msg: string, meta?: unknown): Promise<void> => ipcRenderer.invoke('logger:write', 'error', { msg, meta }),
+  warn: (msg: string, meta?: unknown): Promise<void> => ipcRenderer.invoke('logger:write', 'warn', { msg, meta })
+} as const
+
 const api = {
   secureStore,
   http,
-  shell
+  shell,
+  logger
 }
 
 // contextIsolation 始终启用（见 main/index.ts 的 BrowserWindow 配置）
