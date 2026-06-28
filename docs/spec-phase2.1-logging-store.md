@@ -354,7 +354,7 @@ export interface AppApi {
 ## 9. 实现顺序建议
 
 1. `pnpm add electron-log electron-store` + 类型依赖
-   - **electron-store v9+ 是纯 ESM**，项目 tsconfig.node.json 已是 `module: ESNext` + electron-vite 处理，预期可直接 import；若 typecheck 报 import 问题，先确认 `electron-vite` 把 main 进程打到 ESM 而非 CJS（看 `build.rollupOptions.output.format`）
+   - **electron-store v9+ 是纯 ESM**，必须把项目整体切到 ESM（详见下方 ⚠️ #1）
 2. `src/shared/types.ts` 加 `StoreSchema` / `LoggerApi` / `StoreApi`，扩 `AppApi`
 3. `src/main/services/logger.ts` + `src/main/services/store.ts`
 4. `src/main/ipc/logger.ts` + `src/main/ipc/store.ts`，**修改 `src/main/ipc/index.ts`** 在 `registerAllIpc()` 里加 `registerLoggerIpc()` + `registerStoreIpc()`
@@ -363,7 +363,12 @@ export interface AppApi {
 7. `pnpm typecheck && pnpm lint && pnpm fmt`
 8. 手动跑验证清单
 
-> ⚠️ **实现时学到的（2026-06-28）**：`tsconfig.node.json` 原本只配了 `@shared/*` 别名，**漏了 `@main/*`**。Phase 1 的 IPC 模块用相对路径（`'../services/secure-store'`），所以没暴露这个 gap。Phase 2.1 在 `src/main/ipc/logger.ts` 里第一次用 `@main/services/logger` 时 typecheck 报 `TS2307`，加一行 `"@main/*": ["src/main/*"]` 修好。后续主进程模块统一用 `@main/` 别名。
+> ⚠️ **实现时学到的（2026-06-28）—— 四条核心教训**：
+>
+> 1. **项目必须切 ESM**（最大坑）。electron-vite 默认把 main 进程 bundle 成 CJS，但 electron-store v11 是纯 ESM，rollup 输出 `const Store = require("electron-store")` 拿到的是命名空间 `{ default: ... }`，运行时 `new Store(...)` 抛 `TypeError: Store is not a constructor`。修法：`package.json` 加 `"type": "module"`，electron-vite 自动输出 ESM；preload 文件扩展名会从 `.js` 变 `.mjs`，`src/main/index.ts` 里 `preload: join(__dirname, '../preload/index.js')` 需要同步改成 `.mjs`。electron-vite 自动用 `import.meta.filename/dirname` shim `__filename/__dirname`，并用 `createRequire(import.meta.url)` 给遗留 CJS 依赖兜底。
+> 2. **electron-store v11 的 schema 是「属性 → 子 schema」映射**，不是完整 JSON Schema 根对象。conf v15 在 `#setupValidator` 里把它包成 `{ ...rootSchema, type: 'object', properties: schema }`。
+> 3. **conf 默认 NOT 设 `additionalProperties: false`**。JSON Schema 默认宽松（不写 = 允许任何 extras）。要根级严格必须显式传 `rootSchema: { additionalProperties: false }`——只写在 schema 选项里没用。
+> 4. **`tsconfig.node.json` 原本只配了 `@shared/*` 别名，漏了 `@main/*`**。Phase 1 的 IPC 模块用相对路径（`'../services/secure-store'`），所以没暴露这个 gap。Phase 2.1 在 `src/main/ipc/logger.ts` 里第一次用 `@main/services/logger` 时 typecheck 报 `TS2307`，加一行 `"@main/*": ["src/main/*"]` 修好。后续主进程模块统一用 `@main/` 别名。
 
 ## 10. 后续依赖（不属于本 spec）
 
