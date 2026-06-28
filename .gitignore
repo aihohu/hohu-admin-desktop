@@ -56,3 +56,4 @@ yarn.lock
 # Misc
 .VSCodeCounter
 .claude/settings.local.json
+.superpowers/
