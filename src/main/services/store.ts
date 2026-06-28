@@ -10,10 +10,12 @@ const defaults: StoreSchema = {
 }
 
 /**
- * conf v11（electron-store 底层）会自动把 schema 包成
- *   { type: 'object', properties: <schema>, additionalProperties: false }
- * 所以这里只写「属性 → 子 schema」映射，根级 additionalProperties 由 conf 强制。
- * 字段级严格性（minimum / additionalProperties:false / required）全部保留。
+ * conf v15（electron-store 底层）期望 schema 只是「属性 → 子 schema」映射；
+ * 它会在 #setupValidator 里自动包成 `{ ...rootSchema, type: 'object', properties: schema }`。
+ *
+ * ⚠️ conf 默认 NOT 设置 additionalProperties: false，所以根级严格性必须通过
+ *    `rootSchema: { additionalProperties: false }` 显式开启（D3 决策）。
+ *    字段级严格性（minimum / additionalProperties:false / required）写在子 schema 里。
  */
 const schema = {
   windowState: {
@@ -57,5 +59,6 @@ export const store = new Store<StoreSchema>({
   name: 'config', // userData/config.json
   defaults,
   schema,
+  rootSchema: { additionalProperties: false }, // 根级禁止额外字段（D3）
   clearInvalidConfig: true // 破坏时回退 defaults，不抛错
 })
