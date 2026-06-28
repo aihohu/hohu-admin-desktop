@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "hohu admin desktop client built with Electron + Vue + TypeScript",
   "main": "./out/main/index.js",
+  "type": "module",
   "author": "hohu.org",
   "homepage": "https://www.hohu.org",
   "scripts": {
