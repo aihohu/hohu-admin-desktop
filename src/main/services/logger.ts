@@ -5,7 +5,7 @@ import log from 'electron-log'
 //   Windows: %USERPROFILE%\AppData\Roaming\{appName}\logs\main.log
 //   Linux: ~/.config/{appName}/logs/main.log
 log.transports.file.level = import.meta.env.DEV ? 'debug' : 'info'
-log.transports.file.maxSize = 1048571 // 1 MB → 自动轮转 main.log → main.old.log
+log.transports.file.maxSize = 1048576 // 1 MB → 自动轮转 main.log → main.old.log
 log.transports.console.level = import.meta.env.DEV ? 'debug' : false
 log.transports.console.format = '{h:i:s} [{level}] {text}'
 
