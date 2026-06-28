@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { NConfigProvider, NMessageProvider, NDialogProvider, NNotificationProvider } from 'naive-ui'
-import AppShell from './components/AppShell.vue'
 </script>
 
 <template>
@@ -8,7 +7,7 @@ import AppShell from './components/AppShell.vue'
     <NMessageProvider>
       <NDialogProvider>
         <NNotificationProvider>
-          <AppShell />
+          <RouterView />
         </NNotificationProvider>
       </NDialogProvider>
     </NMessageProvider>

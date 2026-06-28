@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
-import { useAuthStore } from '../store/auth'
+import { useAuthStore } from '../../store/auth'
+import { useRouteStore } from '../../store/route'
 
-// 注：vue-router 还没装（Phase 1 第 2 项），这里先用 emit 通知父组件
-const emit = defineEmits<{ success: [] }>()
+defineOptions({ name: 'LoginPage' })
 
+const router = useRouter()
 const message = useMessage()
 const authStore = useAuthStore()
+const routeStore = useRouteStore()
 
 const form = ref({
   userName: 'admin',
@@ -24,7 +27,8 @@ async function handleSubmit(): Promise<void> {
   try {
     await authStore.login(form.value.userName, form.value.password)
     message.success(`欢迎回来，${authStore.userName}`)
-    emit('success')
+    // login 内部已初始化路由，跳到首页
+    router.push({ name: routeStore.home || 'home' })
   } catch (err) {
     message.error(err instanceof Error ? err.message : '登录失败')
   } finally {

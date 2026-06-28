@@ -28,7 +28,12 @@ export interface HttpApi {
   request: <T = unknown>(config: HttpConfig) => Promise<HttpResponse<T>>
 }
 
+export interface ShellApi {
+  openExternal: (url: string) => Promise<boolean>
+}
+
 export interface AppApi {
   secureStore: SecureStoreApi
   http: HttpApi
+  shell: ShellApi
 }

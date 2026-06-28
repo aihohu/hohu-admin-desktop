@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
 import type { HttpConfig, HttpResponse } from '@shared/types'
 
 /**
@@ -21,24 +20,19 @@ const http = {
   request: <T = unknown>(config: HttpConfig): Promise<HttpResponse<T>> => ipcRenderer.invoke('http:request', config)
 } as const
 
+/**
+ * Shell 桥：在系统默认浏览器打开外链。
+ * 主进程做协议白名单过滤（仅 http/https/mailto）。
+ */
+const shell = {
+  openExternal: (url: string): Promise<boolean> => ipcRenderer.invoke('shell:openExternal', url)
+} as const
+
 const api = {
   secureStore,
-  http
+  http,
+  shell
 }
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
-if (process.contextIsolated) {
-  try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
-  } catch (error) {
-    console.error(error)
-  }
-} else {
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
-  // @ts-ignore (define in dts)
-  window.api = api
-}
+// contextIsolation 始终启用（见 main/index.ts 的 BrowserWindow 配置）
+contextBridge.exposeInMainWorld('api', api)

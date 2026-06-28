@@ -127,9 +127,12 @@ RENDERER_VITE_STORAGE_PREFIX=hoHu_
 
 # .env.development
 RENDERER_VITE_SERVICE_BASE_URL=http://127.0.0.1:8000
+# 路由模式：dynamic（后端拉菜单，默认）| static（前端写死，适合 fork 做独立应用）
+RENDERER_VITE_ROUTE_MODE=dynamic
 
 # .env.production
 RENDERER_VITE_SERVICE_BASE_URL=https://api.hohu.org
+RENDERER_VITE_ROUTE_MODE=dynamic
 ```
 
 Main process env vars use `MAIN_VITE_` prefix; preload uses `PRELOAD_VITE_`.
@@ -182,7 +185,7 @@ Phase 1 (foundation) — **in progress**:
 - ✅ Project bootstrap (code conventions, CI, hooks, LICENSE)
 - ✅ Request layer (main-process HTTP forwarder, flat result shape)
 - ✅ Auth (JWT login, token refresh, Keychain storage, auto-login)
-- ⏳ Dynamic routes + RBAC (next)
+- ✅ Dynamic routes + RBAC (memory history, glob component mapping, dual-mode dynamic/static, v-permission)
 - ⏳ Layout + theme + i18n (next)
 
 See `docs/framework-design.md` for the full roadmap and design rationale.

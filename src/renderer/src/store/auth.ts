@@ -13,9 +13,11 @@ interface AuthState {
 
 /**
  * 鉴权 Store：
- * - login: 账密登录 + 拉取用户信息
+ * - login: 账密登录 + 拉取用户信息 + 初始化路由
  * - initAuth: 启动时从安全存储恢复会话
- * - logout: 清理本地凭证
+ * - logout: 清理本地凭证（不调 router.push，由调用方负责跳转）
+ *
+ * ⚠️ store 不直接 import router，避免循环依赖：route store → router → guard → auth store。
  */
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
@@ -40,6 +42,11 @@ export const useAuthStore = defineStore('auth', {
       }
       await setTokens(data)
       await this.getUserInfo()
+
+      // 登录成功后初始化动态路由
+      const { useRouteStore } = await import('./route')
+      const routeStore = useRouteStore()
+      await routeStore.initAuthRoutes()
     },
 
     async getUserInfo() {
@@ -74,6 +81,12 @@ export const useAuthStore = defineStore('auth', {
 
     async logout() {
       await clearTokens()
+
+      // 清理动态路由（延迟 import 避免循环依赖）
+      const { useRouteStore } = await import('./route')
+      const routeStore = useRouteStore()
+      routeStore.resetRoutes()
+
       this.$reset()
     }
   }
