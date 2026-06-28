@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { HttpConfig, HttpResponse } from '@shared/types'
+import type { HttpConfig, HttpResponse, StoreSchema } from '@shared/types'
 
 /**
  * Secure Store 桥：渲染进程通过 window.api.secureStore 访问主进程的加密存储。
@@ -37,11 +37,25 @@ const logger = {
   warn: (msg: string, meta?: unknown): Promise<void> => ipcRenderer.invoke('logger:write', 'warn', { msg, meta })
 } as const
 
+/**
+ * Store 桥：桌面端非敏感配置（窗口状态、快捷键、托盘行为等）。
+ * UI 偏好（darkMode/locale 等）不存这里，留 localStorage 与 web 端共享。
+ * 类型契约在这里保证：调用方传字面量 key 时 TS 推断 value 类型。
+ */
+const store = {
+  get: <K extends keyof StoreSchema>(key: K): Promise<StoreSchema[K]> =>
+    ipcRenderer.invoke('store:get', key) as Promise<StoreSchema[K]>,
+  set: <K extends keyof StoreSchema>(key: K, value: StoreSchema[K]): Promise<void> =>
+    ipcRenderer.invoke('store:set', key, value) as Promise<void>,
+  delete: (key: keyof StoreSchema): Promise<void> => ipcRenderer.invoke('store:delete', key) as Promise<void>
+} as const
+
 const api = {
   secureStore,
   http,
   shell,
-  logger
+  logger,
+  store
 }
 
 // contextIsolation 始终启用（见 main/index.ts 的 BrowserWindow 配置）

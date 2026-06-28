@@ -2,6 +2,7 @@ import { registerSecureStoreIpc } from './secure-store'
 import { registerHttpIpc } from './http'
 import { registerShellIpc } from './shell'
 import { registerLoggerIpc } from './logger'
+import { registerStoreIpc } from './store'
 
 /**
  * 注册所有 IPC handlers。
@@ -12,4 +13,5 @@ export function registerAllIpc(): void {
   registerHttpIpc()
   registerShellIpc()
   registerLoggerIpc()
+  registerStoreIpc()
 }
