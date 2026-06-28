@@ -186,6 +186,10 @@ export interface StoreSchema {
 
 ### 5.2 主进程（`src/main/services/store.ts`）
 
+> ⚠️ **实现时学到的（2026-06-28）**：electron-store v11 / conf v14+ 的 `schema` 选项**不是完整 JSON Schema 根对象**，而是「属性 → 子 schema」映射。conf 内部在 `#setupValidator` 里包成 `{ ...rootSchema, type: 'object', properties: schema }`。
+>
+> 而且 conf **默认不设置 `additionalProperties: false`**（JSON Schema 默认是 true）。所以根级严格性必须通过 `rootSchema: { additionalProperties: false }` 显式开启——光靠 `schema` 选项里的根级 `additionalProperties: false` 不会生效（实际上根本写不进去，TS 会报 `Schema<StoreSchema>` 类型不匹配）。
+
 ```ts
 import Store from 'electron-store'
 import type { StoreSchema } from '@shared/types'
@@ -198,53 +202,51 @@ const defaults: StoreSchema = {
   notifications: { enabled: true }
 }
 
+// conf v15 期望 schema 只是「属性 → 子 schema」映射，根级字段（type/required/additionalProperties）
+// 必须走 rootSchema 选项。字段级严格性（minimum / additionalProperties:false / required）写在这里。
 const schema = {
-  type: 'object',
-  additionalProperties: false, // 根级禁止额外字段（D3 严格性）
-  properties: {
-    windowState: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        width: { type: 'number', minimum: 400 },
-        height: { type: 'number', minimum: 300 },
-        x: { type: ['number', 'null'] },
-        y: { type: ['number', 'null'] },
-        isMaximized: { type: 'boolean' },
-        isFullScreen: { type: 'boolean' }
-      },
-      required: ['width', 'height']
+  windowState: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      width: { type: 'number', minimum: 400 },
+      height: { type: 'number', minimum: 300 },
+      x: { type: ['number', 'null'] },
+      y: { type: ['number', 'null'] },
+      isMaximized: { type: 'boolean' },
+      isFullScreen: { type: 'boolean' }
     },
-    shortcuts: { type: 'object', additionalProperties: { type: 'string' } },
-    tray: {
-      type: 'object',
-      additionalProperties: false,
-      properties: { closeToTray: { type: 'boolean' } },
-      required: ['closeToTray']
-    },
-    updater: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        skipVersion: { type: ['string', 'null'] },
-        lastCheck: { type: ['number', 'null'] }
-      },
-      required: ['skipVersion', 'lastCheck']
-    },
-    notifications: {
-      type: 'object',
-      additionalProperties: false,
-      properties: { enabled: { type: 'boolean' } },
-      required: ['enabled']
-    }
+    required: ['width', 'height']
   },
-  required: ['windowState', 'shortcuts', 'tray', 'updater', 'notifications']
+  shortcuts: { type: 'object', additionalProperties: { type: 'string' } },
+  tray: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { closeToTray: { type: 'boolean' } },
+    required: ['closeToTray']
+  },
+  updater: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      skipVersion: { type: ['string', 'null'] },
+      lastCheck: { type: ['number', 'null'] }
+    },
+    required: ['skipVersion', 'lastCheck']
+  },
+  notifications: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { enabled: { type: 'boolean' } },
+    required: ['enabled']
+  }
 }
 
 export const store = new Store<StoreSchema>({
   name: 'config', // userData/config.json
   defaults,
   schema,
+  rootSchema: { additionalProperties: false }, // ★ conf 不会自动加，必须显式开（D3）
   clearInvalidConfig: true // 破坏时回退 defaults，不抛错
 })
 ```
@@ -360,6 +362,8 @@ export interface AppApi {
 6. `src/renderer/src/main.ts` 加错误监听
 7. `pnpm typecheck && pnpm lint && pnpm fmt`
 8. 手动跑验证清单
+
+> ⚠️ **实现时学到的（2026-06-28）**：`tsconfig.node.json` 原本只配了 `@shared/*` 别名，**漏了 `@main/*`**。Phase 1 的 IPC 模块用相对路径（`'../services/secure-store'`），所以没暴露这个 gap。Phase 2.1 在 `src/main/ipc/logger.ts` 里第一次用 `@main/services/logger` 时 typecheck 报 `TS2307`，加一行 `"@main/*": ["src/main/*"]` 修好。后续主进程模块统一用 `@main/` 别名。
 
 ## 10. 后续依赖（不属于本 spec）
 
