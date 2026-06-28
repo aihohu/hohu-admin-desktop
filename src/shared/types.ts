@@ -32,8 +32,60 @@ export interface ShellApi {
   openExternal: (url: string) => Promise<boolean>
 }
 
+/**
+ * electron-store 持久化的桌面端配置。
+ * schema 严格校验（additionalProperties: false），老用户升级时新字段由 defaults 自动补齐。
+ *
+ * 注意：UI 偏好（darkMode / primaryColor / siderCollapse / locale）不在这里，
+ * 它们留 localStorage 与 web 端共享。
+ */
+export interface StoreSchema {
+  /** 窗口位置/大小（Phase 2.2 用） */
+  windowState: {
+    width: number
+    height: number
+    /** 最大化/未定位时为 null */
+    x: number | null
+    y: number | null
+    isMaximized?: boolean
+    isFullScreen?: boolean
+  }
+  /** 全局快捷键映射（Phase 2.2 用）：action → accelerator */
+  shortcuts: Record<string, string>
+  /** 托盘行为（Phase 2.2 用） */
+  tray: {
+    closeToTray: boolean
+  }
+  /** 自动更新（Phase 2.3 用） */
+  updater: {
+    skipVersion: string | null
+    lastCheck: number | null
+  }
+  /** 系统通知（Phase 2.4 用） */
+  notifications: {
+    enabled: boolean
+  }
+}
+
+/**
+ * 渲染层 logger 桥。只暴露 error/warn —— 不提供 info/debug，
+ * 避免 renderer 把它当 console 用。常规日志直接走 console.*。
+ */
+export interface LoggerApi {
+  error: (msg: string, meta?: unknown) => Promise<void>
+  warn: (msg: string, meta?: unknown) => Promise<void>
+}
+
+export interface StoreApi {
+  get: <K extends keyof StoreSchema>(key: K) => Promise<StoreSchema[K]>
+  set: <K extends keyof StoreSchema>(key: K, value: StoreSchema[K]) => Promise<void>
+  delete: (key: keyof StoreSchema) => Promise<void>
+}
+
 export interface AppApi {
   secureStore: SecureStoreApi
   http: HttpApi
   shell: ShellApi
+  logger: LoggerApi
+  store: StoreApi
 }
