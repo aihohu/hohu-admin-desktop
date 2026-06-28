@@ -76,6 +76,9 @@ const logger = log.scope('window')
 
 class WindowManagerClass {
   private mainWindow: BrowserWindow | null = null
+  /** 缓存第一次 createMainWindow 传进来的 opts（如 webPreferences.preload），
+   *  activate 等无参调用时复用，避免创建无 preload 的破窗口 */
+  private mainWindowOpts: BrowserWindowConstructorOptions = {}
   private windows = new Map<string, BrowserWindow>()
   private saveStateTimer: NodeJS.Timeout | null = null
 
@@ -84,17 +87,24 @@ class WindowManagerClass {
       return this.mainWindow
     }
 
+    // 缓存 opts：后续 activate 等无参调用能复用 webPreferences 等配置
+    if (opts) this.mainWindowOpts = opts
+    const mergedOpts = this.mainWindowOpts
+
     const saved = store.get('windowState')
     const win = new BrowserWindow({
-      width: saved.width || 1280,
-      height: saved.height || 800,
+      width: saved.width,
+      height: saved.height,
       x: saved.x ?? undefined,
       y: saved.y ?? undefined,
       minWidth: 1024,
       minHeight: 600,
       show: false,
       autoHideMenuBar: true,
-      ...opts
+      // 直接传 constructor options 避免"先创建再 maximize"的可见闪烁
+      maximized: saved.isMaximized ?? false,
+      fullscreen: saved.isFullScreen ?? false,
+      ...mergedOpts
     })
 
     // 状态变化监听（防抖 500ms）
@@ -111,9 +121,10 @@ class WindowManagerClass {
     win.on('enter-full-screen', () => this.saveState(win))
     win.on('leave-full-screen', () => this.saveState(win))
 
-    // 最大化状态恢复
-    if (saved.isMaximized) win.maximize()
-    if (saved.isFullScreen) win.setFullScreen(true)
+    // 真关闭时清理引用（close-to-tray=false 场景才会触发）
+    win.on('closed', () => {
+      if (this.mainWindow === win) this.mainWindow = null
+    })
 
     this.mainWindow = win
     return win
@@ -184,9 +195,12 @@ export const windowManager = new WindowManagerClass()
 ### 4.2 关键点
 
 - **防抖**：`resize`/`move`/`maximize` 用 500ms 防抖，`enter-full-screen`/`leave-full-screen` 立即写（用户主动切换，期望立即响应）
-- **恢复顺序**：先创建窗口（用 saved 的 width/height/x/y），创建后调用 `win.maximize()` / `win.setFullScreen(true)`——这两个不能在 constructor options 里直接传（Electron 限制）
+- **恢复顺序**：`maximized` 和 `fullscreen` 直接传 constructor options（Electron 支持），避免"先创建普通窗口再 maximize"导致的可见闪烁
 - **`getMainWindow` 防御**：返回前检查 `!isDestroyed()`，避免拿到已销毁的引用
+- **`closed` 事件清理 mainWindow**：close-to-tray=false 场景窗口真销毁时，mainWindow 设为 null，避免死引用
+- **opts 缓存**：第一次 createMainWindow 传的 opts（webPreferences 等）缓存下来，activate 等无参调用时复用——否则会创建无 preload 的破窗口
 - **多窗口**：`create(name, opts)` 给 Phase 3 用，本阶段不实际调用。命名约束：名字唯一，重复抛错
+- **`store.get('windowState')` 由 schema defaults 永远返回有效值**（width/height 一定有，不需要 `|| 1280` 之类的 fallback）
 
 ## 5. TrayManager
 
@@ -214,7 +228,10 @@ class TrayManagerClass {
     }
 
     this.tray = new Tray(image.isEmpty() ? nativeImage.createEmpty() : image)
-    this.tray.setToolTip('HoHu Admin Desktop')
+    this.tray.setToolTip(app.getName())
+
+    // macOS 默认双击托盘会触发两次 'click'，导致 toggle → toggle 看起来"没反应"
+    this.tray.setIgnoreDoubleClickEvents(true)
 
     // 单击 toggle 窗口（mac/win/linux 都是 click）
     this.tray.on('click', () => windowManager.toggle())
@@ -240,8 +257,8 @@ class TrayManagerClass {
     this.tray.setContextMenu(Menu.buildFromTemplate(template))
   }
 
-  /** 由 main/index.ts 调用：拦截窗口 close，根据配置决定 hide or quit */
-  handleClose(): boolean {
+  /** 由 main/index.ts 调用：判断是否应该 close-to-tray（读 store.tray.closeToTray） */
+  shouldCloseToTray(): boolean {
     return store.get('tray').closeToTray
   }
 
@@ -259,9 +276,10 @@ export const trayManager = new TrayManagerClass()
 ### 5.2 关键点
 
 - **菜单动态刷新**：每次窗口可见性变化（show/hide/minimize/restore）触发 `refreshMenu()`，菜单的 Show/Hide 标签跟着变
-- **close-to-tray**：`main/index.ts` 给主窗口加 `win.on('close', (event) => { if (trayManager.handleClose()) event.preventDefault(); windowManager.hide() })`
+- **close-to-tray 完整逻辑见 Section 8 的 `win.on('close')`**：同时检查 `isQuitting`（局部变量，由 `before-quit` 事件设置）和 `trayManager.shouldCloseToTray()`，两者都满足才 preventDefault + hide
 - **托盘图标**：尝试加载 `resources/tray-icon.png`，找不到就用空 image（不阻塞启动）。文档说明 mac 推荐用 template image
-- **app.quit() 不可绕过**：close-to-tray 时用户点托盘"Quit"会调 `app.quit()`，触发 `before-quit` 事件，主窗口 close 监听器需要识别"真的要退"——用 `app.isQuitting` 标志位（在 `before-quit` 设置）
+- **tooltip 用 `app.getName()`**：让框架二开后 tooltip 自动跟随应用名
+- **真正的退出路径**：用户点托盘"Quit" → `app.quit()` → `before-quit` 事件 → main/index.ts 局部 `isQuitting = true` → win close 事件触发，`!isQuitting` 为 false，不 preventDefault，正常关闭 → `window-all-closed` 触发 → 走 quit 逻辑
 
 ### 5.3 quit vs hide 流程
 
@@ -269,16 +287,19 @@ export const trayManager = new TrayManagerClass()
 用户点窗口关闭按钮 (close-to-tray=true)
   ↓
 win 'close' event
+  ↓ isQuitting=false && trayManager.shouldCloseToTray()=true
   ↓ event.preventDefault()
   ↓ windowManager.hide()
   ↓ 隐藏到托盘
 
 用户点托盘"Quit"
   ↓ app.quit()
-  ↓ before-quit 事件 → app.isQuitting = true
+  ↓ before-quit 事件 → main/index.ts 局部变量 isQuitting = true
   ↓ win 'close' event
-  ↓ 检查 app.isQuitting: true → 不 preventDefault, 正常关闭
+  ↓ 检查 !isQuitting: false → 不 preventDefault, 正常关闭
 ```
+
+> ⚠️ `isQuitting` 是 main/index.ts 里手动的局部变量（`let isQuitting = false`，在 `before-quit` 置 true）。Electron **没有** `app.isQuitting` 内置 API。
 
 ## 6. ShortcutManager
 
@@ -321,7 +342,8 @@ class ShortcutManagerClass {
       logger.warn(`Unknown action: ${action}`)
       return false
     }
-    // 先注销同 action 的旧快捷键（如果有）
+    // 注意：这里只注销当前 accelerator。如果同一 action 之前注册过不同 accelerator，
+    // 调用方必须先用 update() 而不是 registerOne()，否则旧的 accelerator 不会被注销。
     globalShortcut.unregister(accelerator)
     const ok = globalShortcut.register(accelerator, handler)
     if (!ok) {
@@ -330,14 +352,20 @@ class ShortcutManagerClass {
     return ok
   }
 
-  /** 更新某 action 的 accelerator + 重新注册 */
+  /** 更新某 action 的 accelerator + 重新注册。
+   *  只有注册成功才写 store，避免冲突的 accelerator 留在 store 里反复触发 warn。 */
   update(action: string, accelerator: string): boolean {
-    const shortcuts = store.get('shortcuts')
-    const oldAcc = shortcuts[action]
+    const oldAcc = store.get('shortcuts')[action]
     if (oldAcc) globalShortcut.unregister(oldAcc)
-    shortcuts[action] = accelerator
-    store.set('shortcuts', shortcuts)
-    return this.registerOne(action, accelerator)
+    const ok = this.registerOne(action, accelerator)
+    if (ok) {
+      // 用 spread 创建新对象再 set，避免直接 mutate store 返回的引用（conf v15 的 get 返回内部引用）
+      store.set('shortcuts', { ...store.get('shortcuts'), [action]: accelerator })
+    } else if (oldAcc) {
+      // 注册失败：恢复旧 accelerator，保持状态一致
+      this.registerOne(action, oldAcc)
+    }
+    return ok
   }
 
   /** 取消所有注册（app.before-quit 调用） */
@@ -357,6 +385,30 @@ export const shortcutManager = new ShortcutManagerClass()
 - **update 流程**：先 unregister 旧的、写 store、register 新的。三步原子化由调用方串行调用
 
 ## 7. IPC（极简）
+
+### 7.0 `src/main/ipc/index.ts` 修改
+
+新增一行 import 和一行调用（参照 Phase 2.1 logger/store 的模式）：
+
+```ts
+import { registerSecureStoreIpc } from './secure-store'
+import { registerHttpIpc } from './http'
+import { registerShellIpc } from './shell'
+import { registerLoggerIpc } from './logger'
+import { registerStoreIpc } from './store'
+import { registerThemeIpc } from './theme'
+import { registerShortcutIpc } from './shortcut'
+
+export function registerAllIpc(): void {
+  registerSecureStoreIpc()
+  registerHttpIpc()
+  registerShellIpc()
+  registerLoggerIpc()
+  registerStoreIpc()
+  registerThemeIpc()
+  registerShortcutIpc()
+}
+```
 
 ### 7.1 实现（`src/main/ipc/shortcut.ts`）
 
@@ -408,8 +460,10 @@ const shortcuts = {
 
 ```ts
 import { app, shell, BrowserWindow } from 'electron'
+import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import log from '@main/services/logger'
+import icon from '../../resources/icon.png?asset'
 import { windowManager } from '@main/services/window'
 import { trayManager } from '@main/services/tray'
 import { shortcutManager } from '@main/services/shortcut'
@@ -446,6 +500,8 @@ if (!gotLock) {
 
     // 创建主窗口
     const win = windowManager.createMainWindow({
+      // linux 平台窗口图标（mac/win 用打包后的图标）
+      ...(process.platform === 'linux' ? { icon } : {}),
       webPreferences: {
         preload: join(__dirname, '../preload/index.mjs'),
         sandbox: false
@@ -454,7 +510,7 @@ if (!gotLock) {
 
     // close-to-tray：根据 store.tray.closeToTray 决定
     win.on('close', event => {
-      if (!isQuitting && trayManager.handleClose()) {
+      if (!isQuitting && trayManager.shouldCloseToTray()) {
         event.preventDefault()
         windowManager.hide()
       }
@@ -496,9 +552,10 @@ if (!gotLock) {
   })
 
   app.on('window-all-closed', () => {
-    // close-to-tray 模式下不走这里（窗口没真的关）
-    if (!isQuitting && process.platform !== 'darwin') {
-      // macOS: stay in dock
+    // macOS 约定：关掉最后一个窗口不退出，留在 dock
+    // close-to-tray 模式下 window-all-closed 不会触发（窗口被 hide 而非 close），
+    // 这里只在用户真的关窗口（store.tray.closeToTray=false）+ mac 平台时才 return
+    if (process.platform === 'darwin' && !isQuitting) {
       return
     }
     shortcutManager.unregisterAll()
@@ -507,7 +564,7 @@ if (!gotLock) {
 }
 ```
 
-> 注意：`window-all-closed` 在 close-to-tray 模式下不会触发（窗口被 hide 而非 close）。只有真的 Quit 时才会走，所以可以安全 `app.quit()`。
+> 注意：`window-all-closed` 在 close-to-tray 默认模式下不会触发（窗口被 hide 而非 close）。只有用户改了 `store.tray.closeToTray=false` 后真关窗口，或者点托盘 Quit（isQuitting=true）时才会走到。
 
 ## 9. 验证清单
 
@@ -539,8 +596,8 @@ if (!gotLock) {
 4. **TrayManager** + main/index.ts 集成（含 close-to-tray 流程）
 5. **验证**：托盘显示、菜单、close-to-tray
 6. **ShortcutManager** + main/index.ts 集成
-7. **验证**：默认快捷键、IPC list/update
-8. **IPC 注册 + preload 暴露 shortcuts**
+7. **IPC 注册 + preload 暴露 shortcuts**
+8. **验证**：默认快捷键、IPC list/update
 9. **`pnpm typecheck && pnpm lint && pnpm fmt`**
 10. **手动跑验证清单**
 
