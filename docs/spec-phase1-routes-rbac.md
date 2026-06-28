@@ -1,6 +1,8 @@
 # Phase 1 · 动态路由 + RBAC 设计 Spec
 
 > 目标：让框架「能跳页面」。登录后从后端拉菜单，按权限渲染侧边栏，路由守卫保护受限页面，按钮级权限通过 `v-permission` 控制。
+>
+> **状态**：已实现 + 已测试通过。本文档随实现同步演进，标 ⚠️ 的为实测发现并修复的细节。
 
 ## 1. 范围
 
@@ -289,15 +291,17 @@ src/renderer/src/
 不用 @elegant-router，用 Vite 的 `import.meta.glob` 自动扫描 `views/`：
 
 ```ts
+import { markRaw, type Component } from 'vue'
 import BaseLayout from '../layouts/base-layout.vue'
 import BlankLayout from '../layouts/blank-layout.vue'
 
 // 懒加载所有视图：key 形如 '../views/system/dict/data/index.vue'
 const viewModules = import.meta.glob('../views/**/index.vue')
 
+// ⚠️ 同步 layout 必须用 markRaw 包裹，否则被 Pinia/reactive 化后 Vue Router 会报警告
 export const layouts: Record<string, Component> = {
-  base: BaseLayout,
-  blank: BlankLayout
+  base: markRaw(BaseLayout),
+  blank: markRaw(BlankLayout)
 }
 
 /**
@@ -332,14 +336,26 @@ export const views: Record<string, () => Promise<Component>> = Object.fromEntrie
 | `views/system/dict/data/index.vue` | `system_dict_data` |
 | `views/_builtin/403/index.vue`     | `_builtin_403`     |
 
+⚠️ **markRaw 必需**：layout 组件如果被 Pinia reactive 化，Vue Router 会警告 `Vue received a Component that was made a reactive object`，且 HMR/渲染有性能开销。所有同步导入的组件都应 `markRaw`。
+
 ### 4.2 component 字符串解析（`router/transform.ts`）
 
-需要处理：单级路由、嵌套路由、**空目录**（layout.base + children=null）、**children 可能是 null 或 []**。
+需要处理：单级路由、嵌套路由、**空目录**（layout.base + children=null）、**children 可能是 null 或 []**、**视图缺失 fallback**。
 
 ```ts
 const LAYOUT_PREFIX = 'layout.'
 const VIEW_PREFIX = 'view.'
 const SPLIT = '$'
+
+/**
+ * 兜底：如果后端返回的 view 在 views 表里找不到（开发者还没创建对应 .vue 文件），
+ * 自动 fallback 到 404 页，避免点击菜单无反应。
+ */
+function getView(key: string): () => Promise<unknown> {
+  if (views[key]) return views[key]
+  console.warn(`[router] view not found for "${key}", falling back to 404`)
+  return () => import('../views/_builtin/404/index.vue')
+}
 
 export function transformRouteToVueRoute(route: UserRoute): RouteRecordRaw {
   const { component } = route
@@ -356,7 +372,7 @@ export function transformRouteToVueRoute(route: UserRoute): RouteRecordRaw {
         {
           name: route.name,
           path: '',
-          component: views[viewKey],
+          component: getView(viewKey),
           meta: route.meta
         }
       ]
@@ -382,7 +398,7 @@ export function transformRouteToVueRoute(route: UserRoute): RouteRecordRaw {
     return {
       path: route.path,
       name: route.name,
-      component: views[viewKey],
+      component: getView(viewKey),
       meta: route.meta
     }
   }
@@ -390,6 +406,8 @@ export function transformRouteToVueRoute(route: UserRoute): RouteRecordRaw {
   throw new Error(`[router] unknown component descriptor: ${component}`)
 }
 ```
+
+⚠️ **`getView` fallback 必需**：后端可能返回 `view.ai_chat` 但前端还没创建 `views/ai/chat/index.vue`。如果直接用 `views[viewKey]`（undefined），vue-router 仍注册为「合法路由」，点击菜单无任何反应。fallback 到 404 让用户能看到反馈。
 
 **空目录处理（实测后端会有）**：
 
@@ -427,14 +445,24 @@ NaiveUI NMenu 支持 `disabled` 字段，渲染时自动置灰、不响应点击
 关键 actions：
 
 - `initAuthRoutes()` —— 调 API、转换、注册，并生成 menus + cacheRoutes
+- `setAuthRoutes(routes, home)` —— **async**，关键流程：
+  1. `resetRoutes()` 清掉之前的注册
+  2. `transformRoutes(routes)` 转换
+  3. **`await preloadIcons(collectIcons(routes))`** —— ⚠️ 必须在 `this.menus = ...` 之前 await，否则 Icon 组件渲染时图标不在内存，会触发在线 API 请求（CSP 拦截）
+  4. `this.menus = generateMenus(routes)` —— 此时图标集已就绪
+  5. `router.addRoute(...)` 逐个注册 + 保存 remove 函数
+  6. `router.addRoute({ path: '/', redirect: { name: home } })` 更新 '/' 重定向
 - `resetRoutes()` —— 遍历 `removeRouteFns` 调用，清空 store
+- `collectIcons(routes)` —— 递归收集所有 `meta.icon`（用于 preloadIcons）
 - `generateMenus(routes)` —— 从 `UserRoute[]` 派生 `MenuItem[]`，规则：
   - 过滤 `meta.hideInMenu === true`
   - 单级路由（`component` 含 `$`）：作为叶子菜单项
   - 多级路由（`layout.*` + children）：作为分组，递归生成 children
-  - **空目录**（`layout.*` + children=null）：`disabled: true`，仅展示标题不响应点击
-  - 外链（`meta.href` 非空）：`routePath` 留空，点击时调 `window.electron.shell.openExternal(href)`（需 preload 暴露）
+  - **空目录**（`!isSingleLevel && layout.* && children=null`）：`disabled: true` —— ⚠️ 必须加 `!isSingleLevel` 前置条件，否则单级路由（`layout.x$view.y` 也 startsWith 'layout.'）会被误判
+  - 外链（`meta.href` 非空）：`routePath` 留空，点击时调 `window.api.shell.openExternal(href)`（需 preload 暴露）
 - `generateCacheRoutes(routes)` —— 遍历路由树，收集 `meta.keepAlive === true` 的 `route.name`（**注意：组件 `defineOptions({ name })` 必须与 `route.name` 一致**，KeepAlive include 才生效）
+
+⚠️ **isEmptyDir 必须排除单级路由**：实测发现，`home` 的 component 是 `layout.base$view.home`，`startsWith('layout.')` 为 true，children 为 null。如果只检查这两个条件，`home` 会被误判为空目录、菜单灰显不能点。修复：先判 `isSingleLevel`，单级路由永远不会是空目录。
 
 ### 4.4 路由守卫（`router/guard.ts`）
 
@@ -451,9 +479,19 @@ export function setupRouteGuard(router: Router) {
       return { path: '/login', query: { redirect: to.fullPath } }
     }
 
-    // 2. 已登录但未初始化动态路由 → 先初始化
+    // 2. 已登录但未初始化动态路由 → 先初始化（同时恢复用户信息）
     if (!routeStore.isInitAuthRoute) {
-      await routeStore.initAuthRoutes()
+      try {
+        // ⚠️ 刷新 / 重开场景：Pinia 状态丢失，需要重新拉 getUserInfo 恢复
+        // userName / roles / buttons，否则 UI 会显示「未登录」但 token 仍存在
+        if (!authStore.isLogin) {
+          await authStore.getUserInfo()
+        }
+        await routeStore.initAuthRoutes()
+      } catch {
+        // 初始化失败（如 401）已在 store 内部触发 logout，这里跳登录
+        return { path: '/login' }
+      }
       // 用 fullPath 重新触发导航，让新注册的路由生效（不能 return {...to}）
       return to.fullPath
     }
@@ -482,6 +520,8 @@ export function setupRouteGuard(router: Router) {
 - 顺序：先判断「未初始化」再判断「访问 login」，避免 home 还没值时跳转失败
 - `return to.fullPath` 而不是 `return { ...to, replace: true }`（vue-router 接受字符串触发新导航）
 - `meta.roles` 检查放在 static 模式分支里，dynamic 模式跳过（后端已过滤）
+- ⚠️ **必须同步恢复 authStore 状态**：刷新后 Pinia state 丢失，但 token 仍在 secureStore。如果只调 `initAuthRoutes` 不调 `getUserInfo`，会出现「UI 显示未登录但右上角是退出登录」的诡异现象
+- ⚠️ **必须 try/catch**：getUserInfo 可能因 token 过期失败，不 catch 会让导航永远卡住
 
 ### 4.5 v-permission 指令（`directives/permission.ts`）
 
@@ -640,6 +680,88 @@ export const staticHome = 'home'
 RENDERER_VITE_ROUTE_MODE=static   # 改一个值切换
 ```
 
+### 4.8 图标系统（`icons.ts`）⚠️ 实测踩坑后新增
+
+后端返回 `meta.icon` 是 iconify 字符串（如 `carbon:home`、`ic:round-manage-accounts`、`fluent-mdl2:dictionary`），NaiveUI 的 NMenu 也内部使用 `fluent-mdl2`。`@iconify/vue` 默认会去 `api.iconify.design` / `api.unisvg.com` 在线拉取，但 Electron 的 CSP 拦截 → 图标不显示 + 控制台报错。
+
+**方案**：装 `@iconify/json`（235 个图标集，总 411MB），**懒加载**（不全量装内存）：
+
+```bash
+pnpm add -D @iconify/json
+```
+
+```ts
+// electron.vite.config.ts 加 alias
+resolve: {
+  alias: {
+    '@iconify-json': resolve('node_modules/@iconify/json/json')
+  }
+}
+
+// tsconfig.web.json paths 加
+"@iconify-json/*": ["node_modules/@iconify/json/json/*"]
+
+// src/renderer/src/icons.ts
+const collectionLoaders = import.meta.glob<IconifyJSON>('@iconify-json/*.json', {
+  eager: false,    // 不立即加载，只生成动态 import 函数
+  import: 'default',
+  query: '?json'
+})
+
+export async function loadIconCollection(prefix: string): Promise<boolean> {
+  // 动态 import 对应 prefix 的 JSON（如 'carbon' → carbon.json，~100KB-1MB）
+  // 注册到 @iconify/vue 的内存存储
+}
+
+export async function preloadIcons(icons: Array<string | undefined>): Promise<void> {
+  // 按 prefix 去重 → 批量 loadIconCollection
+}
+```
+
+**关键时序**（踩坑后修正）：
+
+```
+❌ 错误（CSP 仍报警）：menus 设置 → Vue 渲染 Icon → 图标不在内存 → API 请求 → CSP 拦截
+✅ 正确：拉路由 → 同步 await preloadIcons → menus 设置 → Vue 渲染 Icon → 图标已在内存 → 无 API 请求
+```
+
+在 `routeStore.setAuthRoutes` 里强制 preloadIcons 先于 `this.menus = ...`：
+
+```ts
+async setAuthRoutes(routes, home) {
+  this.resetRoutes()
+  this.authRoutes = routes
+  this.home = home
+  this.vueRoutes = transformRoutes(routes)
+
+  await preloadIcons(this.collectIcons(routes))  // ⚠️ 必须先 await
+
+  this.menus = this.generateMenus(routes)  // 此时图标集已就绪
+  // ...
+}
+```
+
+**新增图标集不需要改代码**：后端引入新 prefix（如 `mdi:*`）→ preloadIcons 自动按 prefix 拉对应 JSON → 自动注册。
+
+**BaseLayout 用 Icon 组件渲染**：
+
+```ts
+import { Icon as IconifyIcon } from '@iconify/vue'
+import { h } from 'vue'
+
+function renderIcon(icon?: string) {
+  return icon ? () => h(IconifyIcon, { icon }) : undefined
+}
+
+const menuOptions = computed(() => routeStore.menus.map(m => ({
+  key: m.key,
+  label: m.label,
+  disabled: m.disabled,
+  icon: renderIcon(m.icon),  // ← NMenu 接受 () => VNode 的渲染函数
+  children: m.children?.map(c => ({ ... }))
+})))
+```
+
 ## 5. Pinia store 改造
 
 ### `store/auth.ts` 新增动作
@@ -682,6 +804,13 @@ async function handleLogout() {
 import type { RouteRecordRaw } from 'vue-router'
 
 export const constantRoutes: RouteRecordRaw[] = [
+  // ⚠️ '/' 必须显式定义且放在 pathMatch 前，否则初始导航会被 pathMatch
+  // 抢先匹配，直接重定向到 /404，守卫都没机会执行
+  {
+    path: '/',
+    name: 'root',
+    redirect: () => ({ path: '/login' })
+  },
   {
     path: '/login',
     name: 'login',
@@ -706,7 +835,7 @@ export const constantRoutes: RouteRecordRaw[] = [
     component: () => import('../views/_builtin/500/index.vue'),
     meta: { constant: true, title: '服务器错误' }
   },
-  // 兜底：未匹配路径跳 404
+  // 兜底：未匹配路径跳 404（必须放在最后）
   { path: '/:pathMatch(.*)*', redirect: '/404' }
 ]
 ```
@@ -714,6 +843,8 @@ export const constantRoutes: RouteRecordRaw[] = [
 **关键点**：
 
 - **扁平结构**：避免父子嵌套导致 `router.push({ name: 'login' })` 行为不稳
+- ⚠️ **`/` 必须显式定义**：vue-router 处理 redirect 先于 guard，如果没显式 `/`，初始导航会被 pathMatch 抢匹配直接跳 /404，守卫都不执行
+- ⚠️ **`pathMatch` 必须放最后**：否则会抢先匹配 `/` `/login` 等具体路径
 - 错误页和登录页**不需要** blank-layout 包裹（它们本身就是极简页面）
 - 兜底 `pathMatch` → `/404`，避免白屏
 - `meta.constant: true` 让守卫 §4.4 步骤 1 放行
@@ -863,40 +994,44 @@ declare namespace Api {
 
 ```bash
 pnpm add vue-router@5
+pnpm add -D @iconify/json
 ```
 
-### 新增文件（15 个）
+### 新增文件（17 个）
 
-| 文件                                            | 作用                              |
-| ----------------------------------------------- | --------------------------------- |
-| `src/renderer/src/router/index.ts`              | createRouter + memory history     |
-| `src/renderer/src/router/guard.ts`              | beforeEach 守卫                   |
-| `src/renderer/src/router/routes.ts`             | 静态常量路由（login/403/404/500） |
-| `src/renderer/src/router/static-routes.ts`      | **static 模式专用的完整路由树**   |
-| `src/renderer/src/router/components.ts`         | glob 组件映射                     |
-| `src/renderer/src/router/transform.ts`          | component 字符串解析              |
-| `src/renderer/src/store/route.ts`               | Pinia route store                 |
-| `src/renderer/src/directives/permission.ts`     | v-permission + hasPermission      |
-| `src/renderer/src/layouts/base-layout.vue`      | 简易布局                          |
-| `src/renderer/src/layouts/blank-layout.vue`     | 空白布局（错误页用）              |
-| `src/renderer/src/views/_builtin/403/index.vue` | 无权限页                          |
-| `src/renderer/src/views/_builtin/404/index.vue` | 未找到页                          |
-| `src/renderer/src/views/_builtin/500/index.vue` | 服务器错误页                      |
-| `src/renderer/src/service/api/route.ts`         | API 封装                          |
-| `src/renderer/src/typings/api/route.d.ts`       | 类型声明                          |
-| `src/main/ipc/shell.ts`                         | shell.openExternal IPC handler    |
+| 文件                                            | 作用                                         |
+| ----------------------------------------------- | -------------------------------------------- |
+| `src/renderer/src/router/index.ts`              | createRouter + memory history                |
+| `src/renderer/src/router/guard.ts`              | beforeEach 守卫                              |
+| `src/renderer/src/router/routes.ts`             | 静态常量路由（root/login/403/404/500）       |
+| `src/renderer/src/router/static-routes.ts`      | **static 模式专用的完整路由树**              |
+| `src/renderer/src/router/components.ts`         | glob 组件映射 + markRaw                      |
+| `src/renderer/src/router/transform.ts`          | component 字符串解析 + getView fallback      |
+| `src/renderer/src/store/route.ts`               | Pinia route store（async setAuthRoutes）     |
+| `src/renderer/src/directives/permission.ts`     | v-permission + hasPermission                 |
+| `src/renderer/src/layouts/base-layout.vue`      | 主布局（Header + Sider + KeepAlive）         |
+| `src/renderer/src/layouts/blank-layout.vue`     | 空白布局（备用）                             |
+| `src/renderer/src/views/_builtin/403/index.vue` | 无权限页                                     |
+| `src/renderer/src/views/_builtin/404/index.vue` | 未找到页                                     |
+| `src/renderer/src/views/_builtin/500/index.vue` | 服务器错误页                                 |
+| `src/renderer/src/service/api/route.ts`         | API 封装                                     |
+| `src/renderer/src/typings/api/route.d.ts`       | 类型声明                                     |
+| `src/renderer/src/icons.ts`                     | ⚠️ 图标系统：@iconify/json 懒加载            |
+| `src/main/ipc/shell.ts`                         | shell.openExternal IPC handler               |
+| `scripts/smoke-test.mjs`                        | 数据层冒烟测试脚本（不依赖 Electron 运行时） |
 
-### 修改文件（7 个）
+### 修改文件（8 个）
 
-| 文件                | 改动                                              |
-| ------------------- | ------------------------------------------------- |
-| `main.ts`           | 注册 router + v-permission 指令 + token 预热      |
-| `App.vue`           | 简化为 `<NConfigProvider>...<RouterView /></...>` |
-| `store/auth.ts`     | login/logout 联动 routeStore                      |
-| `preload/index.ts`  | 暴露 `window.electron.shell.openExternal`         |
-| `main/ipc/index.ts` | 注册 shell IPC handler                            |
-| `package.json`      | 加 `vue-router` 依赖                              |
-| `CLAUDE.md`         | 更新 Phase 1 进度                                 |
+| 文件                      | 改动                                                           |
+| ------------------------- | -------------------------------------------------------------- |
+| `main.ts`                 | 注册 router + v-permission 指令 + token 预热                   |
+| `App.vue`                 | 简化为 `<NConfigProvider>...<RouterView /></...>`              |
+| `store/auth.ts`           | login/logout 联动 routeStore；delayed import 避免 circular dep |
+| `preload/index.ts`        | 暴露 `window.api.shell.openExternal`                           |
+| `main/ipc/index.ts`       | 注册 registerShellIpc                                          |
+| `electron.vite.config.ts` | 加 `@iconify-json` alias（指向 @iconify/json/json）            |
+| `tsconfig.web.json`       | paths 加 `@iconify-json/*`                                     |
+| `package.json`            | 加 `vue-router` `@iconify/json` 依赖                           |
 
 ### 删除文件（1 个）
 
@@ -906,17 +1041,22 @@ pnpm add vue-router@5
 
 ## 11. 决策记录
 
-| 决策           | 选择                                                   | 理由                          |
-| -------------- | ------------------------------------------------------ | ----------------------------- |
-| History 类型   | `createMemoryHistory`                                  | Electron 无 URL bar，最稳     |
-| 文件路由       | **不用** @elegant-router                               | 引入复杂度大，glob 扫描足够   |
-| 常量路由       | 前端写死                                               | 不依赖后端，启动更快          |
-| **路由模式**   | **dynamic（默认）+ static 可切换**                     | **fork 出去做独立应用也能用** |
-| 路由初始化时机 | 登录后 + 路由守卫双重保险                              | 处理刷新场景                  |
-| 按钮权限       | v-if + hasPermission() 优先，v-permission 指令作为补充 | 响应式自动跟随 store 变化     |
-| i18n           | 仅保留 i18nKey 字段，不翻译                            | 留给 Phase 1 第 4 项统一接入  |
-| 单级路由表示   | `layout.x$view.y`                                      | 与 web 端约定一致             |
-| Token 预热     | `main.ts` 中 `app.use(router)` 前 `await loadTokens()` | 避免守卫首次 IPC 延迟         |
+| 决策              | 选择                                                   | 理由                                                 |
+| ----------------- | ------------------------------------------------------ | ---------------------------------------------------- |
+| History 类型      | `createMemoryHistory`                                  | Electron 无 URL bar，最稳                            |
+| 文件路由          | **不用** @elegant-router                               | 引入复杂度大，glob 扫描足够                          |
+| 常量路由          | 前端写死                                               | 不依赖后端，启动更快                                 |
+| **路由模式**      | **dynamic（默认）+ static 可切换**                     | **fork 出去做独立应用也能用**                        |
+| 路由初始化时机    | 登录后 + 路由守卫双重保险                              | 处理刷新场景                                         |
+| 按钮权限          | v-if + hasPermission() 优先，v-permission 指令作为补充 | 响应式自动跟随 store 变化                            |
+| i18n              | 仅保留 i18nKey 字段，不翻译                            | 留给 Phase 1 第 4 项统一接入                         |
+| 单级路由表示      | `layout.x$view.y`                                      | 与 web 端约定一致                                    |
+| Token 预热        | `main.ts` 中 `app.use(router)` 前 `await loadTokens()` | 避免守卫首次 IPC 延迟                                |
+| ⚠️ **图标系统**   | **@iconify/json 懒加载**                               | 离线可用、覆盖 235 个图标集、自动适配后端任意 prefix |
+| ⚠️ Layout markRaw | 同步导入的组件必须 `markRaw`                           | 避免 Pinia reactive 化触发 Vue 警告                  |
+| ⚠️ 视图 fallback  | transform 时缺失视图自动 fallback 到 404               | 避免点击菜单无反应                                   |
+| ⚠️ 显式 `/` 路由  | constantRoutes 必须显式定义 `/` + pathMatch 放最后     | 否则初始导航被 pathMatch 抢匹配直接跳 404            |
+| ⚠️ Auth 同步恢复  | 守卫里同步调 `getUserInfo()`                           | 刷新后 Pinia state 丢失需重新拉                      |
 
 ## 12. 与 web 端的差异（明确说明）
 
