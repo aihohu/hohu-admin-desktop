@@ -301,11 +301,46 @@ new BrowserWindow({
 
 > `contextIsolation: true` + `nodeIntegration: false` 已是 Electron 安全默认值，不可关闭。`sandbox: true` 是更严格的安全模式，但会让 preload 脚本无法使用 Node API，需要在 Phase 2 验证依赖兼容性后再开启。
 
+### 6.3 布局 + 主题 + i18n（已实现）
+
+#### 布局：原生 `<aside>` 而非 NLayoutSider
+
+桌面端 sider 用原生 `<aside>` + CSS width 过渡，**不**用 NaiveUI 的 `NLayoutSider`。原因：`NLayoutSider` 的 collapse 与 `NMenu` 的 `:collapsed` 同时存在时，折叠态下菜单空白（双重 collapse 冲突）。原生 sider 只控制宽度，NMenu 单独管 collapse 状态，互不干扰。
+
+主题变量桥：原生 HTML 元素不享受 NaiveUI 的 provide/inject。通过 `useThemeVars()` 把 NaiveUI 主题变量映射到 CSS 变量：
+
+```ts
+const cssVars = computed(() => ({
+  '--layout-sider-bg': themeVars.value.cardColor,
+  '--layout-content-bg': themeVars.value.bodyColor,
+  '--layout-text': themeVars.value.textColor1
+}))
+```
+
+#### 主题分层：渲染层 + 原生层
+
+| 层     | 控制什么                                     | API                                     |
+| ------ | -------------------------------------------- | --------------------------------------- |
+| 渲染层 | NaiveUI dark mode + 主色（4 预设）           | `useThemeVars()` + `themeStore`         |
+| 原生层 | 标题栏背景、原生 scrollbar、原生右键菜单颜色 | `nativeTheme.themeSource`（主进程 API） |
+
+⚠️ **必须双层同步**：只动渲染层会让原生标题栏停留在浅色，看起来主题只切了一半。Phase 2.1 加了 `theme:setNativeSource` IPC 桥（`src/main/ipc/theme.ts`），`themeStore` 的 `setDark/toggleDark` 调它同步到 `nativeTheme.themeSource`，启动时 `initNativeTheme()` 根据 localStorage 的 darkMode 初始化一次。
+
+存储分层（D5 决策）：UI 偏好（darkMode / primaryColor / siderCollapse / locale）留 localStorage 与 web 端共享，桌面专属配置（windowState / shortcuts / tray）才进 electron-store。
+
+#### i18n：菜单 label 用 `meta.i18nKey` 反查
+
+后端路由返回的菜单 `name`（如 `system_operation-log`，带连字符）作为 i18n key 反查语言包。语言包里必须用引号 key：`'system_operation-log': 'Operation Log'`，不能用 `system_operation_log`（下划线）。
+
+切换语言时菜单 label 不响应（`translate()` 是非响应式）—— `App.vue` 监听 `appStore.locale` 变化后调 `routeStore.regenerateMenus()` 重新翻译。
+
+---
+
 ### Phase 2 — 让框架"有桌面感"（差异化）
 
 - [ ] 窗口管理 + 托盘 + 全局快捷键
 - [ ] 自动更新接入
-- [ ] 日志 + 本地存储
+- [x] **日志 + 本地存储** —— 详见 `docs/spec-phase2.1-logging-store.md`
 - [ ] 系统通知分发器
 
 ### Phase 3 — 让框架"有亮点"（吸引社区）
@@ -344,6 +379,8 @@ new BrowserWindow({
 - [x] README 改写为"开发框架"定位（生态导航 / 架构图 / 已实现特性 / 路线图）
 - [x] Phase 1：动态路由 + RBAC（memory history / glob / dual-mode / v-permission / icon 懒加载）
 - [x] Phase 1：布局 + 主题 + i18n（暗黑 / 主色 / 中英文 / 面包屑 / Sider 折叠）
+- [x] Phase 1：nativeTheme 桥（渲染层暗黑同步到原生标题栏 / scrollbar）
+- [x] Phase 2.1：日志（electron-log）+ 本地存储（electron-store）+ ESM 切换
 - [ ] 文档站接入 hohu-admin-docs
 
 ---

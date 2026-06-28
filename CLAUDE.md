@@ -165,6 +165,8 @@ Configured in `tsconfig.{node,web}.json` (paths) and `electron.vite.config.ts` (
 6. **Preload runs before renderer** — `useMessage()` and similar NaiveUI composables must be called inside `<NMessageProvider>` children, not in the same component that mounts the provider.
 7. **`X-Request-Id`** header is auto-injected by `nanoid()` for tracing.
 8. **Token refresh uses single-flight** — concurrent requests that hit expired-token code share one refresh Promise (see `state.refreshTokenPromise` in `service/request/index.ts`).
+9. **Renderer dark mode does NOT affect native UI** — the macOS title bar background, native scrollbar, and native context menu color are controlled by `nativeTheme` (main-process-only API). The renderer's `darkMode` toggle only affects NaiveUI. Use the `theme:setNativeSource` IPC bridge in `src/main/ipc/theme.ts` to sync — the theme store calls it in `setDark/toggleDark/initNativeTheme`. Forget this and dark mode looks half-applied.
+10. **ESM-only npm packages can't be `require()`'d** — electron-vite defaults to bundling main as CJS, which breaks pure-ESM packages (e.g. `electron-store` v11) with `TypeError: X is not a constructor`. Fix: `"type": "module"` in `package.json`, electron-vite auto-outputs ESM. Preload extension changes from `.js` to `.mjs`, so update any `preload: join(__dirname, '../preload/index.js')` references.
 
 ## Git Workflow
 
