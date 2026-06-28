@@ -90,6 +90,16 @@ export interface ThemeApi {
   setNativeSource: (source: 'system' | 'dark' | 'light') => Promise<void>
 }
 
+/**
+ * Shortcuts 桥：渲染层读取/更新全局快捷键配置（设置页用）。
+ * action 名固定在主进程 ACTION_HANDLERS 里，渲染层不能注册任意 action。
+ * update 返回 boolean：false 表示快捷键被其他应用占用，注册失败。
+ */
+export interface ShortcutsApi {
+  list: () => Promise<Record<string, string>>
+  update: (action: string, accelerator: string) => Promise<boolean>
+}
+
 export interface AppApi {
   secureStore: SecureStoreApi
   http: HttpApi
@@ -97,4 +107,5 @@ export interface AppApi {
   logger: LoggerApi
   store: StoreApi
   theme: ThemeApi
+  shortcuts: ShortcutsApi
 }
