@@ -101,11 +101,16 @@ class WindowManagerClass {
       minHeight: 600,
       show: false,
       autoHideMenuBar: true,
-      // 直接传 constructor options 避免"先创建再 maximize"的可见闪烁
-      maximized: saved.isMaximized ?? false,
-      fullscreen: saved.isFullScreen ?? false,
       ...mergedOpts
     })
+
+    // 最大化/全屏恢复：show: false 保证了用户看不到 pre-maximize 状态，所以无闪烁。
+    // ⚠️ 不能在 constructor options 里传 maximized —— Electron TS 类型没暴露这个 key
+    // （只有 maximizable "是否允许最大化"，含义不同）。Post-creation 调用 maximize()
+    // 在 show: false 模式下不会闪烁，因为 ready-to-show 事件触发 win.show() 之前 maximize
+    // 已经同步完成。
+    if (saved.isMaximized) win.maximize()
+    if (saved.isFullScreen) win.setFullScreen(true)
 
     // 状态变化监听（防抖 500ms）
     const scheduleSave = (): void => {
@@ -195,7 +200,7 @@ export const windowManager = new WindowManagerClass()
 ### 4.2 关键点
 
 - **防抖**：`resize`/`move`/`maximize` 用 500ms 防抖，`enter-full-screen`/`leave-full-screen` 立即写（用户主动切换，期望立即响应）
-- **恢复顺序**：`maximized` 和 `fullscreen` 直接传 constructor options（Electron 支持），避免"先创建普通窗口再 maximize"导致的可见闪烁
+- **恢复顺序**：⚠️ 实现时学到的——Electron 的 `BrowserWindowConstructorOptions` TS 类型**没有** `maximized` 字段（只有 `maximizable` "是否允许最大化"，含义不同），运行时虽然支持但 typecheck 会失败。实际实现用 post-creation `win.maximize()` / `win.setFullScreen(true)`，配合 `show: false` 保证 ready-to-show 触发前 maximize 已完成，无可见闪烁
 - **`getMainWindow` 防御**：返回前检查 `!isDestroyed()`，避免拿到已销毁的引用
 - **`closed` 事件清理 mainWindow**：close-to-tray=false 场景窗口真销毁时，mainWindow 设为 null，避免死引用
 - **opts 缓存**：第一次 createMainWindow 传的 opts（webPreferences 等）缓存下来，activate 等无参调用时复用——否则会创建无 preload 的破窗口

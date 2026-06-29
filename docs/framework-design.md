@@ -338,7 +338,7 @@ const cssVars = computed(() => ({
 
 ### Phase 2 — 让框架"有桌面感"（差异化）
 
-- [ ] 窗口管理 + 托盘 + 全局快捷键
+- [x] **窗口管理 + 托盘 + 全局快捷键** —— 详见 `docs/spec-phase2.2-window-tray-shortcut.md`
 - [ ] 自动更新接入
 - [x] **日志 + 本地存储** —— 详见 `docs/spec-phase2.1-logging-store.md`
 - [ ] 系统通知分发器
@@ -381,6 +381,7 @@ const cssVars = computed(() => ({
 - [x] Phase 1：布局 + 主题 + i18n（暗黑 / 主色 / 中英文 / 面包屑 / Sider 折叠）
 - [x] Phase 1：nativeTheme 桥（渲染层暗黑同步到原生标题栏 / scrollbar）
 - [x] Phase 2.1：日志（electron-log）+ 本地存储（electron-store）+ ESM 切换
+- [x] Phase 2.2：WindowManager + TrayManager + ShortcutManager + shortcuts IPC
 - [ ] 文档站接入 hohu-admin-docs
 
 ---
