@@ -7,7 +7,8 @@ export default defineConfig({
     resolve: {
       alias: {
         '@main': resolve('src/main'),
-        '@shared': resolve('src/shared')
+        '@shared': resolve('src/shared'),
+        '@resources': resolve('resources')
       }
     }
   },
@@ -23,6 +24,7 @@ export default defineConfig({
       alias: {
         '@renderer': resolve('src/renderer/src'),
         '@shared': resolve('src/shared'),
+        '@resources': resolve('resources'),
         '@iconify-json': resolve('node_modules/@iconify/json/json')
       }
     },

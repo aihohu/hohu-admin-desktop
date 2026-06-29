@@ -5,7 +5,7 @@ import log from './logger'
 // 复用现有 app icon 作为 tray icon。
 // macOS 推荐 16×16 单色 template image（tray-icon-template@2x.png），
 // 开发者后续可以替换 import 路径到自定义资源。
-import trayIconUrl from '../../resources/icon.png?asset'
+import trayIconUrl from '@resources/icon.png?asset'
 
 const logger = log.scope('tray')
 
