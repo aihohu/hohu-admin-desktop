@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { initSecureStore } from './services/secure-store'
 import { windowManager } from './services/window'
+import { trayManager } from './services/tray'
 import { registerAllIpc } from './ipc'
 
 // 单例锁：第二次启动直接 focus 已有窗口
@@ -59,6 +60,23 @@ if (!gotLock) {
     } else {
       win.loadFile(join(__dirname, '../renderer/index.html'))
     }
+
+    // close-to-tray：根据 store.tray.closeToTray 决定（isQuitting=true 时强制放行）
+    win.on('close', event => {
+      if (!isQuitting && trayManager.shouldCloseToTray()) {
+        event.preventDefault()
+        windowManager.hide()
+      }
+    })
+
+    // 托盘初始化
+    trayManager.init()
+
+    // 窗口可见性变化时刷新托盘菜单（Show ↔ Hide 标签）
+    win.on('show', () => trayManager.refreshMenu())
+    win.on('hide', () => trayManager.refreshMenu())
+    win.on('minimize', () => trayManager.refreshMenu())
+    win.on('restore', () => trayManager.refreshMenu())
 
     app.on('activate', () => {
       // macOS dock 点击：窗口存在就 show，不存在才 create
