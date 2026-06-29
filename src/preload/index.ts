@@ -59,13 +59,25 @@ const theme = {
     ipcRenderer.invoke('theme:setNativeSource', source) as Promise<void>
 } as const
 
+/**
+ * Shortcuts 桥：读取/更新全局快捷键配置（设置页用）。
+ * action 名固定在主进程 ACTION_HANDLERS 里，渲染层不能注册任意 action。
+ * update 返回 boolean：false 表示快捷键被其他应用占用，注册失败。
+ */
+const shortcuts = {
+  list: (): Promise<Record<string, string>> => ipcRenderer.invoke('shortcuts:list') as Promise<Record<string, string>>,
+  update: (action: string, accelerator: string): Promise<boolean> =>
+    ipcRenderer.invoke('shortcuts:update', action, accelerator) as Promise<boolean>
+} as const
+
 const api = {
   secureStore,
   http,
   shell,
   logger,
   store,
-  theme
+  theme,
+  shortcuts
 }
 
 // contextIsolation 始终启用（见 main/index.ts 的 BrowserWindow 配置）

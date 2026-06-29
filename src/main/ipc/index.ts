@@ -4,6 +4,7 @@ import { registerShellIpc } from './shell'
 import { registerLoggerIpc } from './logger'
 import { registerStoreIpc } from './store'
 import { registerThemeIpc } from './theme'
+import { registerShortcutIpc } from './shortcut'
 
 /**
  * 注册所有 IPC handlers。
@@ -16,4 +17,5 @@ export function registerAllIpc(): void {
   registerLoggerIpc()
   registerStoreIpc()
   registerThemeIpc()
+  registerShortcutIpc()
 }
