@@ -5,6 +5,7 @@ import icon from '../../resources/icon.png?asset'
 import { initSecureStore } from './services/secure-store'
 import { windowManager } from './services/window'
 import { trayManager } from './services/tray'
+import { shortcutManager } from './services/shortcut'
 import { registerAllIpc } from './ipc'
 
 // 单例锁：第二次启动直接 focus 已有窗口
@@ -71,6 +72,7 @@ if (!gotLock) {
 
     // 托盘初始化
     trayManager.init()
+    shortcutManager.init()
 
     // 窗口可见性变化时刷新托盘菜单（Show ↔ Hide 标签）
     win.on('show', () => trayManager.refreshMenu())
@@ -95,6 +97,7 @@ if (!gotLock) {
     if (process.platform === 'darwin' && !isQuitting) {
       return
     }
+    shortcutManager.unregisterAll()
     app.quit()
   })
 }
