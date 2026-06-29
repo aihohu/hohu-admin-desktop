@@ -217,7 +217,7 @@ import { windowManager } from './window'
 import { store } from './store'
 import log from './logger'
 // Vite ?asset 导入：让 Vite 编译期处理路径，dev/prod 都能找到
-import trayIconUrl from '../../resources/tray-icon.png?asset'
+import trayIconUrl from '@resources/icon.png?asset'
 
 const logger = log.scope('tray')
 
@@ -276,7 +276,11 @@ class TrayManagerClass {
 export const trayManager = new TrayManagerClass()
 ```
 
-> **tray-icon.png 资源**：项目目前只有 `resources/icon.png`，Phase 2.2 实施时需要新增 `resources/tray-icon.png`（推荐 22×22 PNG，macOS 推荐 template image 黑白图标）。如果不想新增，可以临时改成 `import trayIconUrl from '../../resources/icon.png?asset'` 复用 app icon。文档说明：macOS 用户可以把 tray-icon.png 替换成 `tray-icon-template@2x.png` 形式的 template image 获得原生外观。
+> **tray-icon.png 资源**：项目目前只有 `resources/icon.png`，Phase 2.2 实施时复用它作为 tray icon（macOS 上是彩色图标，不够原生但能跑）。
+>
+> ⚠️ **实现时学到的（2026-06-29）**：原 spec 写的是相对路径 `../../resources/tray-icon.png?asset`，但 `src/main/services/tray.ts` 离 `resources/` 有 3 层（`../../../`），违反 CLAUDE.md 的 alias 约定（"Avoid deep relative imports"）。Phase 2.2 实施期间新增了 `@resources` 别名（指向项目根 `resources/`），代码改成 `import trayIconUrl from '@resources/icon.png?asset'`。Vite 的 `?asset` modifier 跟 alias 兼容，dev/prod 都能解析。
+>
+> 文档说明：macOS 用户可以把 `resources/icon.png` 替换成 `tray-icon-template@2x.png` 形式的 template image 获得原生外观（修改 import 路径即可）。
 
 ### 5.2 关键点
 

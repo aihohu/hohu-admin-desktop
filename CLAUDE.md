@@ -139,15 +139,17 @@ Main process env vars use `MAIN_VITE_` prefix; preload uses `PRELOAD_VITE_`.
 
 ## Path Aliases
 
-| Alias         | Resolves to          | Used by                 |
-| ------------- | -------------------- | ----------------------- |
-| `@renderer/*` | `src/renderer/src/*` | renderer                |
-| `@shared/*`   | `src/shared/*`       | main, preload, renderer |
-| `@main/*`     | `src/main/*`         | main                    |
+| Alias           | Resolves to                       | Used by                 |
+| --------------- | --------------------------------- | ----------------------- |
+| `@renderer/*`   | `src/renderer/src/*`              | renderer                |
+| `@shared/*`     | `src/shared/*`                    | main, preload, renderer |
+| `@main/*`       | `src/main/*`                      | main                    |
+| `@resources/*`  | `resources/*`                     | main, renderer          |
+| `@iconify-json` | `node_modules/@iconify/json/json` | renderer                |
 
 Configured in `tsconfig.{node,web}.json` (paths) and `electron.vite.config.ts` (vite resolve.alias).
 
-**Avoid deep relative imports** like `../../../../shared/types` — use aliases.
+**Avoid deep relative imports** like `../../../resources/icon.png` — use `@resources/icon.png` instead. Note: `?asset` modifier works with aliases (e.g. `import icon from '@resources/icon.png?asset'`).
 
 ## Security
 

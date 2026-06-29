@@ -372,7 +372,7 @@ const cssVars = computed(() => ({
 - [x] Release workflow（三平台构建，tag 触发）
 - [x] LICENSE / Issue 模板 / PR 模板
 - [x] pnpm-workspace.yaml 配置 onlyBuiltDependencies
-- [x] 路径别名（`@renderer` / `@shared` / `@main`）
+- [x] 路径别名（`@renderer` / `@shared` / `@main` / `@resources` / `@iconify-json`）
 - [x] Phase 1：请求层（主进程 HTTP 转发）+ 鉴权（Keychain）
 - [x] Phase 1：typed IPC + Preload 沙箱
 - [x] CLAUDE.md 框架文档
