@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { HttpConfig, HttpResponse, StoreSchema } from '@shared/types'
+import type { HttpConfig, HttpResponse, StoreSchema, UpdaterEvent, UpdaterStatus } from '@shared/types'
 
 /**
  * Secure Store 桥：渲染进程通过 window.api.secureStore 访问主进程的加密存储。
@@ -70,6 +70,27 @@ const shortcuts = {
     ipcRenderer.invoke('shortcuts:update', action, accelerator) as Promise<boolean>
 } as const
 
+/**
+ * Updater 桥：手动检查 / 安装 / 跳过版本 / 订阅事件流。
+ * onEvent 走 invoke('updater:subscribe') 触发主进程注册 listener，
+ * 之后通过 ipcRenderer.on('updater:event') 接收推送。
+ */
+const updater = {
+  check: (forced?: boolean): Promise<UpdaterStatus> => ipcRenderer.invoke('updater:check', forced),
+  install: (): Promise<void> => ipcRenderer.invoke('updater:install'),
+  skipVersion: (version: string): Promise<void> => ipcRenderer.invoke('updater:skipVersion', version),
+  getStatus: (): Promise<UpdaterStatus> => ipcRenderer.invoke('updater:getStatus'),
+  onEvent: (cb: (e: UpdaterEvent) => void): Promise<() => void> =>
+    new Promise(resolve => {
+      const wrapped = (_e: unknown, payload: UpdaterEvent): void => cb(payload)
+      ipcRenderer.on('updater:event', wrapped)
+      // 订阅动作本身走一次 IPC（触发 main 注册 listener）
+      void ipcRenderer.invoke('updater:subscribe').then(() => {
+        resolve(() => ipcRenderer.removeListener('updater:event', wrapped))
+      })
+    })
+} as const
+
 const api = {
   secureStore,
   http,
@@ -77,7 +98,8 @@ const api = {
   logger,
   store,
   theme,
-  shortcuts
+  shortcuts,
+  updater
 }
 
 // contextIsolation 始终启用（见 main/index.ts 的 BrowserWindow 配置）
