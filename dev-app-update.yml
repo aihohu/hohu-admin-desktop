@@ -1,3 +1,8 @@
+# dev 模式（pnpm dev）下 electron-updater 读这个文件。
+# 默认 url 是 example.com 占位 —— UpdaterManager.init() 检测到会跳过 init，不打错误日志。
+# 要在 dev 下测更新流程：把 url 改成你发布过 release 的 GitHub 仓库 latest.yml 路径，
+# 或本地 file:// 路径，或任意静态服务器；version 比当前 package.json 高才能触发 update-available。
+# 改完重启 pnpm dev（HMR 不覆盖主进程）。
 provider: generic
 url: https://example.com/auto-updates
 updaterCacheDirName: hohu-admin-desktop-updater

@@ -336,10 +336,54 @@ const cssVars = computed(() => ({
 
 ---
 
+### 6.4 自动更新（已实现）
+
+#### 架构：UpdaterManager 单例
+
+```
+src/main/services/updater.ts      # UpdaterManager（autoUpdater 封装 + 事件流）
+src/main/ipc/updater.ts           # 4 invoke handler + 1 subscribe handler
+src/preload/index.ts              # window.api.updater.{check, install, skipVersion, getStatus, onEvent}
+scripts/gen-publish-config.mjs    # build 时注入 publish 段
+```
+
+#### Provider 双模式（build-time switch）
+
+| Provider | 适用                          | 配置                                                         |
+| -------- | ----------------------------- | ------------------------------------------------------------ |
+| github   | fork 开发者，打 tag 就发布    | `.env` 设 `UPDATER_PROVIDER=github` + `GH_OWNER` / `GH_REPO` |
+| generic  | 自建静态服务器 / CDN / 云服务 | `.env` 设 `UPDATER_PROVIDER=generic` + `UPDATER_URL`         |
+
+`scripts/gen-publish-config.mjs` 读 `.env`，注入 publish 段到 `build/electron-builder.yml`（gitignored）。运行时 provider 烧在 `app-update.yml` 里，无法热切。
+
+#### 关键策略
+
+- **24h 限频**：`store.updater.lastCheck` 持久化，启动时检查；手动入口（托盘「Check for Updates...」）绕过限频
+- **skipVersion**：写 `store.updater.skipVersion`；`update-available` 事件命中即 `CancellationToken.cancel()` + 标记 skipped
+- **autoDownload=false + 显式 downloadUpdate(token)**：v6 的 autoDownload=true 模式没有中断下载的 API，改用手动触发 + token 才能让 skipVersion 真正中断下载
+- **autoInstallOnAppQuit=true**：用户不主动 Restart 也会在下次退出时安装
+- **系统通知只在 update-downloaded 弹一次**：checking/available/progress 仅走 IPC + 日志，不打扰用户
+- **dev 模式**：`!app.isPackaged` 时显式设 `autoUpdater.updateConfigPath` 指项目根 `dev-app-update.yml`；命中 example.com 占位 URL 自动跳过
+
+#### 平台限制
+
+- Windows NSIS：开箱即用
+- macOS：需代码签名（`mac.identity` + Developer ID Application），当前未配置 → 能检测能下载但安装被拒
+- Linux：仅 AppImage 支持（deb/snap 不支持自动更新）
+
+#### 未做（YAGNI）
+
+- 渲染层「关于/设置页」UI —— IPC 全暴露，UI 留 Phase 3
+- Beta 通道 / 预发布过滤
+- 代码签名 / 公证配置 —— 文档化限制
+- hohu-admin 后端更新接口 —— 后端范畴
+
+---
+
 ### Phase 2 — 让框架"有桌面感"（差异化）
 
 - [x] **窗口管理 + 托盘 + 全局快捷键** —— 详见 `docs/spec-phase2.2-window-tray-shortcut.md`
-- [ ] 自动更新接入
+- [x] **自动更新接入** —— 详见 `docs/spec-phase2.3-auto-update.md`
 - [x] **日志 + 本地存储** —— 详见 `docs/spec-phase2.1-logging-store.md`
 - [ ] 系统通知分发器
 

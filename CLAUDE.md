@@ -169,6 +169,9 @@ Configured in `tsconfig.{node,web}.json` (paths) and `electron.vite.config.ts` (
 8. **Token refresh uses single-flight** — concurrent requests that hit expired-token code share one refresh Promise (see `state.refreshTokenPromise` in `service/request/index.ts`).
 9. **Renderer dark mode does NOT affect native UI** — the macOS title bar background, native scrollbar, and native context menu color are controlled by `nativeTheme` (main-process-only API). The renderer's `darkMode` toggle only affects NaiveUI. Use the `theme:setNativeSource` IPC bridge in `src/main/ipc/theme.ts` to sync — the theme store calls it in `setDark/toggleDark/initNativeTheme`. Forget this and dark mode looks half-applied.
 10. **ESM-only npm packages can't be `require()`'d** — electron-vite defaults to bundling main as CJS, which breaks pure-ESM packages (e.g. `electron-store` v11) with `TypeError: X is not a constructor`. Fix: `"type": "module"` in `package.json`, electron-vite auto-outputs ESM. Preload extension changes from `.js` to `.mjs`, so update any `preload: join(__dirname, '../preload/index.js')` references.
+11. **macOS 自动更新需要代码签名** — electron-updater 在 macOS 通过 `validateUpdate` 校验更新包签名，要求 app 自身已用 Developer ID Application 证书签名（`electron-builder.yml` 的 `Mac.identity` 配置）。当前未配置签名 → 能检测能下载，但安装被拒。公证（notarization）是 Apple 对**首次分发**的独立要求（外链 DMG 第一次运行），与自动更新流程无关。Windows NSIS / Linux AppImage 不受影响。
+12. **dev 模式读 dev-app-update.yml** — `pnpm dev` 下 electron-updater 默认 no-op，`UpdaterManager.init` 显式设置 updateConfigPath。命中占位 URL（example.com）会自动跳过 init 避免每次 dev 都打 error 日志。要在 dev 验证更新流程：编辑 `dev-app-update.yml` 的 url 指向本地静态服务器或 GitHub raw，并保证目标版本号高于 `package.json` 的 version。改完重启 dev，不重启不生效。
+13. **provider 是构建时决定的** — `electron-builder` 把 publish 配置烤进 `app-update.yml` 打包到 asar 里。运行时无法切换；要换 provider 必须重新 build。`.env` 的 `UPDATER_PROVIDER` 在 build 前由 `scripts/gen-publish-config.mjs` 读取，注入到生成的 `build/electron-builder.yml`。
 
 ## Git Workflow
 
