@@ -38,8 +38,5 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: generic
-  url: https://hohu.org/app/auto-updates
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/
