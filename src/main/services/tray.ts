@@ -2,6 +2,7 @@ import { app, Tray, Menu, nativeImage, type MenuItemConstructorOptions } from 'e
 import { windowManager } from './window'
 import { store } from './store'
 import log from './logger'
+import { updaterManager } from './updater'
 // 复用现有 app icon 作为 tray icon。
 // macOS 推荐 16×16 单色 template image（tray-icon-template@2x.png），
 // 开发者后续可以替换 import 路径到自定义资源。
@@ -45,6 +46,11 @@ class TrayManagerClass {
       { type: 'separator' },
       { label: 'Reload', click: () => win?.reload() },
       { label: 'DevTools', click: () => win?.webContents.toggleDevTools() },
+      { type: 'separator' },
+      {
+        label: 'Check for Updates...',
+        click: () => void updaterManager.check(true)
+      },
       { type: 'separator' },
       { label: 'Quit', click: () => app.quit() }
     ]
