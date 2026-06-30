@@ -5,6 +5,7 @@ import { registerLoggerIpc } from './logger'
 import { registerStoreIpc } from './store'
 import { registerThemeIpc } from './theme'
 import { registerShortcutIpc } from './shortcut'
+import { registerUpdaterIpc } from './updater'
 
 /**
  * 注册所有 IPC handlers。
@@ -18,4 +19,5 @@ export function registerAllIpc(): void {
   registerStoreIpc()
   registerThemeIpc()
   registerShortcutIpc()
+  registerUpdaterIpc()
 }
