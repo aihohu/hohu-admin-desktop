@@ -1,5 +1,6 @@
 import { app, Notification } from 'electron'
-import { autoUpdater, type UpdateCheckResult } from 'electron-updater'
+// electron-updater 是 CommonJS 包，不能 named import；default import 后解构
+import electronUpdater, { type UpdateCheckResult } from 'electron-updater'
 import { CancellationToken } from 'builder-util-runtime'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -11,6 +12,7 @@ import { shouldCheckNow, isSkipped } from './updater-utils'
 // Re-export 纯函数，让外部从 updater 入口也能拿到
 export { shouldCheckNow, isSkipped } from './updater-utils'
 
+const { autoUpdater } = electronUpdater
 const logger = log.scope('updater')
 
 /** dev-app-update.yml 默认占位 URL，命中时跳过 init，避免每次 dev 都打错误日志 */

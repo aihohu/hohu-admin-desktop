@@ -172,6 +172,7 @@ Configured in `tsconfig.{node,web}.json` (paths) and `electron.vite.config.ts` (
 11. **macOS 自动更新需要代码签名** — electron-updater 在 macOS 通过 `validateUpdate` 校验更新包签名，要求 app 自身已用 Developer ID Application 证书签名（`electron-builder.yml` 的 `Mac.identity` 配置）。当前未配置签名 → 能检测能下载，但安装被拒。公证（notarization）是 Apple 对**首次分发**的独立要求（外链 DMG 第一次运行），与自动更新流程无关。Windows NSIS / Linux AppImage 不受影响。
 12. **dev 模式读 dev-app-update.yml** — `pnpm dev` 下 electron-updater 默认 no-op，`UpdaterManager.init` 显式设置 updateConfigPath。命中占位 URL（example.com）会自动跳过 init 避免每次 dev 都打 error 日志。要在 dev 验证更新流程：编辑 `dev-app-update.yml` 的 url 指向本地静态服务器或 GitHub raw，并保证目标版本号高于 `package.json` 的 version。改完重启 dev，不重启不生效。
 13. **provider 是构建时决定的** — `electron-builder` 把 publish 配置烤进 `app-update.yml` 打包到 asar 里。运行时无法切换；要换 provider 必须重新 build。`.env` 的 `UPDATER_PROVIDER` 在 build 前由 `scripts/gen-publish-config.mjs` 读取，注入到生成的 `build/electron-builder.yml`。
+14. **CJS 包在 ESM 项目里不能 named import** — 项目是 ESM (`"type": "module"`)，但有些依赖仍是 CJS（如 `electron-updater` v6）。`import { autoUpdater } from 'electron-updater'` typecheck 过（TS 的 `esModuleInterop` 假装可以），运行时炸 `Named export 'autoUpdater' not found`。修：`import electronUpdater from 'electron-updater'; const { autoUpdater } = electronUpdater`。type-only 标记（`import { type X }`）不受影响，因为类型在编译时被擦除。
 
 ## Git Workflow
 
