@@ -100,6 +100,53 @@ export interface ShortcutsApi {
   update: (action: string, accelerator: string) => Promise<boolean>
 }
 
+/**
+ * Updater 桥：electron-updater 的 typed IPC 表面。
+ * state 流：idle → checking → available → downloading → downloaded → (install)
+ *                                                  ↘ not-available / error / skipped
+ */
+export type UpdaterState =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+  | 'skipped'
+
+export interface UpdaterStatus {
+  state: UpdaterState
+  /** 检测到的新版本号（无则 null） */
+  version: string | null
+  /** 下载进度 0-100（非 downloading 状态为 null） */
+  progress: number | null
+  lastCheck: number | null
+  skipVersion: string | null
+}
+
+export type UpdaterEvent =
+  | { type: 'checking' }
+  | { type: 'available'; version: string }
+  | { type: 'not-available' }
+  | { type: 'progress'; percent: number }
+  | { type: 'downloaded'; version: string }
+  | { type: 'skipped'; version: string }
+  | { type: 'error'; message: string }
+
+export interface UpdaterApi {
+  /** 发起检查；forced=true 绕过 24h 限频 */
+  check: (forced?: boolean) => Promise<UpdaterStatus>
+  /** 退出并安装（仅在 downloaded 状态有效） */
+  install: () => Promise<void>
+  /** 标记跳过某版本 */
+  skipVersion: (version: string) => Promise<void>
+  /** 拿当前状态（渲染层首屏初始化用） */
+  getStatus: () => Promise<UpdaterStatus>
+  /** 订阅事件流；返回取消订阅函数 */
+  onEvent: (cb: (e: UpdaterEvent) => void) => Promise<() => void>
+}
+
 export interface AppApi {
   secureStore: SecureStoreApi
   http: HttpApi
@@ -108,4 +155,5 @@ export interface AppApi {
   store: StoreApi
   theme: ThemeApi
   shortcuts: ShortcutsApi
+  updater: UpdaterApi
 }
