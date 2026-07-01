@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { HttpConfig, HttpResponse, StoreSchema, UpdaterEvent, UpdaterStatus } from '@shared/types'
+import type { HttpConfig, HttpResponse, NotifyPayload, StoreSchema, UpdaterEvent, UpdaterStatus } from '@shared/types'
 
 /**
  * Secure Store 桥：渲染进程通过 window.api.secureStore 访问主进程的加密存储。
@@ -91,6 +91,15 @@ const updater = {
     })
 } as const
 
+/**
+ * Notification 桥：渲染层推系统通知（web 做不到的桌面差异化）。
+ * 受主进程 store.notifications.enabled 全局 mute。
+ */
+const notification = {
+  show: (payload: NotifyPayload): Promise<void> => ipcRenderer.invoke('notification:show', payload),
+  setEnabled: (enabled: boolean): Promise<void> => ipcRenderer.invoke('notification:setEnabled', enabled)
+} as const
+
 const api = {
   secureStore,
   http,
@@ -99,7 +108,8 @@ const api = {
   store,
   theme,
   shortcuts,
-  updater
+  updater,
+  notification
 }
 
 // contextIsolation 始终启用（见 main/index.ts 的 BrowserWindow 配置）
