@@ -1,4 +1,4 @@
-import { app, Notification } from 'electron'
+import { app } from 'electron'
 // electron-updater 是 CommonJS 包，不能 named import；default import 后解构
 import electronUpdater, { type UpdateCheckResult } from 'electron-updater'
 import { CancellationToken } from 'builder-util-runtime'
@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import type { UpdaterEvent, UpdaterState, UpdaterStatus } from '@shared/types'
 import { store } from './store'
 import log from './logger'
+import { notificationManager } from './notification'
 import { shouldCheckNow, isSkipped } from './updater-utils'
 
 // Re-export 纯函数，让外部从 updater 入口也能拿到
@@ -211,14 +212,16 @@ class UpdaterManagerClass {
   }
 
   private notify(version: string): void {
-    if (!Notification.isSupported()) return
-    const n = new Notification({
+    // actionId 暂不传 —— 默认行为是聚焦主窗口。
+    // Phase 3 加 Restart UI 后，下面 registerAction 一行取消注释即可恢复「点通知立刻装」：
+    //   notificationManager.registerAction('updater:install', () => this.install())
+    //   然后 payload 加 actionId: 'updater:install'
+    notificationManager.show({
+      source: 'system',
+      category: 'updater',
       title: app.name,
-      body: `v${version} ready — restart to apply`,
-      silent: false
+      body: `v${version} ready — restart to apply`
     })
-    n.on('click', () => this.install())
-    n.show()
   }
 }
 
