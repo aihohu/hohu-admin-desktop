@@ -380,12 +380,53 @@ scripts/gen-publish-config.mjs    # build 时注入 publish 段
 
 ---
 
+### 6.5 系统通知分发器（已实现）
+
+#### 架构：NotificationManager 单例
+
+```
+src/main/services/notification.ts   # NotificationManager（Notification 封装 + GC 持引用 + action handler map）
+src/main/ipc/notification.ts        # 2 invoke handler: show / setEnabled
+src/preload/index.ts                # window.api.notification.{show, setEnabled}
+```
+
+#### 核心策略
+
+- **唯一入口**：所有 `new Notification()` 调用必须经 `notificationManager.show(payload)` —— 一处检查 `enabled`、一处打日志、一处改行为
+- **全局 mute**：复用 `store.notifications.enabled`；false 时所有 source 都被丢弃（含 updater 的「下载完成」）
+- **GC 持引用**：`activeNotifications: Set<Notification>` 持强引用，`close` / `failed` 事件触发时移除 —— 防止 V8 GC 在用户点击前回收 wrapper 吞掉 handler
+- **action 钩子**：`payload.actionId` 可选；不传 = 默认聚焦主窗口，传了未注册 = warn + 回退聚焦。业务模块（Phase 3+）启动时 `notificationManager.registerAction(id, fn)` 注册
+- **跨平台兜底**：`Notification.isSupported() === false`（Linux 无 libnotify 等）时 manager 静默 no-op
+
+#### Source 模型（前瞻性预留）
+
+| Source   | 今天 | 未来                                                                  |
+| -------- | ---- | --------------------------------------------------------------------- |
+| system   | ✅   | updater 等主进程自发                                                  |
+| renderer | ✅   | 渲染层 IPC 推（web 做不到的桌面差异化）                               |
+| backend  | ❌   | 预留：hohu-admin 后端通知模块落地后，加 `BackendNotificationConsumer` |
+
+backend 写进类型但今天无消费者；Phase 2.5（如果发生）加 backend 拉取（SSE / 轮询）时是「新增 source」而非「改架构」。
+
+#### Phase 2.3 行为回退
+
+Phase 2.3 updater 通知点击 = 立刻 `quitAndInstall()`；Phase 2.4 改为聚焦主窗口（更符合用户对「点通知」的预期）。Phase 3 加 Restart UI 后通过 `registerAction('updater:install', () => updaterManager.install())` 一行恢复原行为。
+
+#### 未做（YAGNI）
+
+- 通知历史 / 通知中心 —— 系统通知中心已有
+- 自定义 action buttons（Reply / Snooze）—— Electron 跨平台支持不一致
+- 分类静音、dedup、限频、声音、icon —— 用系统默认
+- 设置页 UI —— IPC 已暴露，UI 留 Phase 3
+
+---
+
 ### Phase 2 — 让框架"有桌面感"（差异化）
 
 - [x] **窗口管理 + 托盘 + 全局快捷键** —— 详见 `docs/spec-phase2.2-window-tray-shortcut.md`
 - [x] **自动更新接入** —— 详见 `docs/spec-phase2.3-auto-update.md`
 - [x] **日志 + 本地存储** —— 详见 `docs/spec-phase2.1-logging-store.md`
-- [ ] 系统通知分发器
+- [x] **系统通知分发器** —— 详见 `docs/spec-phase2.4-notification-dispatcher.md`
 
 ### Phase 3 — 让框架"有亮点"（吸引社区）
 

@@ -173,6 +173,11 @@ Configured in `tsconfig.{node,web}.json` (paths) and `electron.vite.config.ts` (
 12. **dev 模式读 dev-app-update.yml** — `pnpm dev` 下 electron-updater 默认 no-op，`UpdaterManager.init` 显式设置 updateConfigPath。命中占位 URL（example.com）会自动跳过 init 避免每次 dev 都打 error 日志。要在 dev 验证更新流程：编辑 `dev-app-update.yml` 的 url 指向本地静态服务器或 GitHub raw，并保证目标版本号高于 `package.json` 的 version。改完重启 dev，不重启不生效。
 13. **provider 是构建时决定的** — `electron-builder` 把 publish 配置烤进 `app-update.yml` 打包到 asar 里。运行时无法切换；要换 provider 必须重新 build。`.env` 的 `UPDATER_PROVIDER` 在 build 前由 `scripts/gen-publish-config.mjs` 读取，注入到生成的 `build/electron-builder.yml`。
 14. **CJS 包在 ESM 项目里不能 named import** — 项目是 ESM (`"type": "module"`)，但有些依赖仍是 CJS（如 `electron-updater` v6）。`import { autoUpdater } from 'electron-updater'` typecheck 过（TS 的 `esModuleInterop` 假装可以），运行时炸 `Named export 'autoUpdater' not found`。修：`import electronUpdater from 'electron-updater'; const { autoUpdater } = electronUpdater`。type-only 标记（`import { type X }`）不受影响，因为类型在编译时被擦除。
+15. **通知点击从「立刻装」改成「聚焦窗口」** — Phase 2.3 的 updater 通知点 click 直接 `quitAndInstall()`；Phase 2.4 收敛到 dispatcher 后默认行为是聚焦主窗口。Phase 3 加 Restart UI 后通过 `notificationManager.registerAction('updater:install', () => updaterManager.install())` 一行即可恢复「一键装」体验（`updaterManager.install` 是 public）。
+16. **macOS 首次启动会弹通知权限请求** — 第一次 `new Notification()` 时系统弹「允许 hohu-admin-desktop 发送通知」。用户拒绝后所有 `show` 静默失败（系统层处理，框架不感知）。开发者测试时如果通知不弹，先检查「系统设置 → 通知 → hohu-admin-desktop」是否被关。
+17. **`Notification.isSupported()` 在某些 Linux 容器 / 无桌面环境返回 false** — 框架启动时打一次 warn，之后 show 调用静默 return。Linux CI / Docker 测试环境遇到这条 warn 是预期，不是 bug。
+18. **`notificationManager` 不需要 `init()`** — 与 window/tray/shortcut/updater 不同，dispatcher 是纯被动模块。构造在模块加载时完成（`export const ... = new ...`），不需要在 `app.whenReady` 里调任何方法。这是有意设计（D6），不是漏写。
+19. **`Notification` 必须由 manager 持强引用** — dispatcher 流量比单调用点大，V8 GC 在用户点击前回收 Notification wrapper 会让 click handler 不触发。manager 内部用 `activeNotifications: Set<Notification>` 持引用，`close` / `failed` 事件触发时移除。直接 `new Notification()` 不入 set 是错的（D11）。
 
 ## Git Workflow
 
