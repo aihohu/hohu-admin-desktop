@@ -40,20 +40,19 @@ Phase 2.3 的 `UpdaterManager.notify()` 直接 `new Notification()`。Phase 2.4 
 | D8  | **macOS 首次权限弹窗由系统触发**，不主动调 deprecated 的 `Notification.requestPermission()` | Electron 5+ 后 `requestPermission` 已废弃且无操作；系统会在第一次 `new Notification()` 时自己弹权限请求。用户拒绝 → 后续 `show` 静默失败（系统层处理）                                             |
 | D9  | **不持久化通知历史**                                                                        | 系统通知中心（macOS Notification Center / Windows Action Center / Linux 桌面环境）已经有历史。框架再存一份是重复且容易过期不一致                                                                   |
 | D10 | **`actionId` 未注册 handler 时回退到聚焦窗口 + 打 warn**                                    | 比 throw 更稳：通知点击是用户可见行为，永远不应该让 app 崩                                                                                                                                         |
+| D11 | **`activeNotifications: Set<Notification>` 持强引用**，`close` / `failed` 事件触发时移除    | Notification 是 native 对象的 JS wrapper；V8 GC 在用户点击前回收 wrapper 会让 click handler 不触发甚至崩溃。Phase 2.3 单调用点平台 luck-through，但 dispatcher 是中心路径，流量更大必须显式持引用  |
+| D12 | **`Notification.isSupported()` 在模块加载时调（早于 `app.whenReady`）是安全的**             | 这是 Electron 的 static 平台检查（不依赖 app runtime），docs 明示。`new Notification()` 只在 `show()` 内调，而 `show()` 总在 ready 之后（IPC 或 updater.init 触发）                                |
 
 ## 3. 文件结构
 
 ```
 src/main/services/
-└── notification.ts            # NotificationManager 单例（新增）
-
-src/main/services/
+├── notification.ts            # NotificationManager 单例（新增）
 └── updater.ts                 # 修改：notify() 改调 notificationManager.show({...})
 
 src/main/ipc/
-└── notification.ts            # registerNotificationIpc() — 2 handler（新增）
-
-src/main/ipc/index.ts          # 修改：registerAllIpc() 加 registerNotificationIpc()
+├── notification.ts            # registerNotificationIpc() — 2 handler（新增）
+└── index.ts                   # 修改：registerAllIpc() 加 registerNotificationIpc()
 
 src/preload/index.ts           # 暴露 window.api.notification.{show, setEnabled}
 
@@ -62,7 +61,7 @@ src/preload/index.d.ts         # 不动（generic via AppApi，新加的 notific
 src/shared/types.ts            # NotifyPayload / NotificationSource / NotificationCategory / NotificationApi；
                               # AppApi 加 notification: NotificationApi
 
-src/main/index.ts              # 不动（manager 在模块加载时构造，无 init 调用）
+src/main/index.ts              # 不动（manager 在模块加载时构造，无 init 调用 —— 详见 D6/D12）
 ```
 
 **不动文件说明**：
@@ -87,6 +86,12 @@ const actionHandlers = new Map<string, ActionHandler>()
 
 class NotificationManagerClass {
   private supported: boolean
+  /**
+   * 持有所有「在飞」的 Notification 强引用，防止 V8 GC 在通知被点击 / 关闭前回收
+   * JS wrapper（某些平台会导致 click handler 不触发或崩溃）。
+   * close / failed 事件触发时从 set 移除。
+   */
+  private activeNotifications = new Set<Notification>()
 
   constructor() {
     this.supported = Notification.isSupported()
@@ -108,10 +113,17 @@ class NotificationManagerClass {
     const n = new Notification({
       title: payload.title,
       body: payload.body
-      // 不设 urgency / silent / icon —— 走系统默认；这些跨平台支持差异大
+      // 不设 urgency / silent / icon —— 走系统默认；silent 默认 false（与 Phase 2.3 updater 行为一致），其余跨平台支持差异大
     })
 
+    // 持引用直到通知关闭，防止 GC 吞掉 click handler
+    this.activeNotifications.add(n)
+    const release = (): void => {
+      this.activeNotifications.delete(n)
+    }
     n.on('click', () => this.handleClick(payload.actionId))
+    n.once('close', release)
+    n.once('failed', release)
     n.show()
 
     logger.info(`[${payload.source}/${payload.category ?? 'general'}] ${payload.title}: ${payload.body}`)
@@ -250,7 +262,9 @@ const notification = {
 
 ## 8. UpdaterManager 改造（`src/main/services/updater.ts`）
 
-**改前**（Phase 2.3 实现）：
+替换 `updater.ts:213-222` 的 `notify()` 方法体（这是 Phase 2.3 写入的实际代码，不是简化版）：
+
+**改前**（当前 `updater.ts:213-222`）：
 
 ```ts
 private notify(version: string): void {
@@ -269,8 +283,10 @@ private notify(version: string): void {
 
 ```ts
 private notify(version: string): void {
-  // actionId 暂不注册具体 handler —— updater 自己监听 'downloaded' 状态，
-  // 用户点通知时主窗口聚焦后能看到「Restart」按钮（Phase 3 加 UI 时再 wire 真正的 install 调用）
+  // actionId 暂不传 —— 默认行为是聚焦主窗口。
+  // Phase 3 加 Restart UI 后，下面 registerAction 一行取消注释即可恢复「点通知立刻装」：
+  //   notificationManager.registerAction('updater:install', () => this.install())
+  //   然后 payload 加 actionId: 'updater:install'
   notificationManager.show({
     source: 'system',
     category: 'updater',
@@ -283,15 +299,25 @@ private notify(version: string): void {
 **注意**：Phase 2.3 的 `n.on('click', () => this.install())` 直接调 install；改造后点击只是聚焦窗口（默认 action）。理由：
 
 1. 用户可能在看别的东西，强制退出安装太粗暴
-2. Phase 3 加「Restart Now」按钮 UI 后，actionId 注册 `'updater:install'` 即可恢复原行为
+2. Phase 3 加「Restart Now」按钮 UI 后，`registerAction('updater:install', () => this.install())` 一行即可恢复原行为（`updaterManager.install` 是 public 方法）
 3. 系统通知点击的预期是「打开 app」，不是「立刻退出」
 
-> 这是 Phase 2.3 行为的轻微回退（从「点通知立刻装」变成「点通知聚焦到 Restart 按钮」）。记录在 Common Pitfalls 里。
+> 这是 Phase 2.3 行为的轻微回退（从「点通知立刻装」变成「点通知聚焦窗口」）。记录在 Common Pitfalls 里。
 
-import 改：
+**import 改**（updater.ts 第 1 行）：
 
-- 去掉 `Notification` from `'electron'`
-- 加 `import { notificationManager } from './notification'`
+```ts
+// 改前
+import { app, Notification } from 'electron'
+// 改后（去掉 Notification，保留 app）
+import { app } from 'electron'
+```
+
+并在 updater.ts 的 import 块里加：
+
+```ts
+import { notificationManager } from './notification'
+```
 
 ## 9. main/index.ts
 
@@ -302,11 +328,12 @@ import 改：
 ## 10. 验收清单
 
 - [ ] `pnpm typecheck && pnpm lint && pnpm fmt && pnpm test` 通过
+  - Phase 2.4 不新增 unit test（manager 全是副作用，无法脱离 Electron runtime 测试；现有 2.3 的 `shouldCheckNow` / `isSkipped` 测试应继续通过）
 - [ ] `pnpm dev` 启动后无 notification 相关错误
-- [ ] 渲染层调 `window.api.notification.show({ source: 'renderer', title: 'Test', body: 'Hello' })` 弹出系统通知
+- [ ] 渲染层调 `window.api.notification.show({ source: 'renderer', title: 'Test', body: 'Hello' })` 弹出系统通知（**manual** —— CI 无桌面环境）
 - [ ] 关 `window.api.notification.setEnabled(false)` 后再 show，通知不弹（日志可见 `muted` debug）
 - [ ] 托盘「Check for Updates...」流程（如果有可用更新）走的是 dispatcher（日志 `[notification] [system/updater]`）
-- [ ] 点击通知 → 主窗口聚焦（如果最小化则 restore + show）
+- [ ] 点击通知 → 主窗口聚焦（如果最小化则 restore + show）（**manual**）
 - [ ] `UpdaterManager.notify()` 不再直接 `new Notification()`（grep 验证）
 - [ ] `CLAUDE.md` / `framework-design.md` 同步更新
 
@@ -319,3 +346,5 @@ import 改：
 17. **`Notification.isSupported()` 在某些 Linux 容器/无桌面环境返回 false** —— 框架启动时打一次 warn，之后 show 调用静默 return。Linux CI / Docker 测试环境遇到这条 warn 是预期，不是 bug。
 
 18. **`notificationManager` 不需要 `init()`** —— 与 window/tray/shortcut/updater 不同，dispatcher 是纯被动模块。构造在模块加载时完成（`export const ... = new ...`），不需要在 `app.whenReady` 里调任何方法。这是有意设计（D6），不是漏写。
+
+19. **`Notification` 必须由 manager 持强引用** —— dispatcher 流量比单调用点大，V8 GC 在用户点击前回收 Notification wrapper 会让 click handler 不触发。manager 内部用 `activeNotifications: Set<Notification>` 持引用，`close` / `failed` 事件触发时移除。直接 `new Notification()` 不入 set 是错的（D11）。
