@@ -147,6 +147,34 @@ export interface UpdaterApi {
   onEvent: (cb: (e: UpdaterEvent) => void) => Promise<() => void>
 }
 
+/** 通知来源：预留 backend，今天只用 system + renderer */
+export type NotificationSource = 'system' | 'renderer' | 'backend'
+
+/** 通知分类：今天只作日志标签和未来分类静音的 key；运行时不强制枚举 */
+export type NotificationCategory = 'updater' | 'ai' | 'download' | 'alert' | 'general'
+
+export interface NotifyPayload {
+  source: NotificationSource
+  /** 不传 = 'general' */
+  category?: NotificationCategory
+  title: string
+  body: string
+  /**
+   * 点击通知的回调 ID（可选）。
+   * 不传 = 默认聚焦主窗口；
+   * 传了但未注册 handler = warn + 回退聚焦主窗口；
+   * 业务模块用 notificationManager.registerAction(id, fn) 注册具体回调。
+   */
+  actionId?: string
+}
+
+export interface NotificationApi {
+  /** 推系统通知（受 notifications.enabled 全局 mute） */
+  show: (payload: NotifyPayload) => Promise<void>
+  /** 改 store.notifications.enabled（设置页用，今天无 UI） */
+  setEnabled: (enabled: boolean) => Promise<void>
+}
+
 export interface AppApi {
   secureStore: SecureStoreApi
   http: HttpApi
@@ -156,4 +184,5 @@ export interface AppApi {
   theme: ThemeApi
   shortcuts: ShortcutsApi
   updater: UpdaterApi
+  notification: NotificationApi
 }
