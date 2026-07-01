@@ -6,6 +6,7 @@ import { registerStoreIpc } from './store'
 import { registerThemeIpc } from './theme'
 import { registerShortcutIpc } from './shortcut'
 import { registerUpdaterIpc } from './updater'
+import { registerNotificationIpc } from './notification'
 
 /**
  * 注册所有 IPC handlers。
@@ -20,4 +21,5 @@ export function registerAllIpc(): void {
   registerThemeIpc()
   registerShortcutIpc()
   registerUpdaterIpc()
+  registerNotificationIpc()
 }
