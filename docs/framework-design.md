@@ -467,7 +467,7 @@ Phase 2.3 updater 通知点击 = 立刻 `quitAndInstall()`；Phase 2.4 改为聚
 - [x] Phase 1：nativeTheme 桥（渲染层暗黑同步到原生标题栏 / scrollbar）
 - [x] Phase 2.1：日志（electron-log）+ 本地存储（electron-store）+ ESM 切换
 - [x] Phase 2.2：WindowManager + TrayManager + ShortcutManager + shortcuts IPC
-- [ ] 文档站接入 hohu-admin-docs
+- [x] 文档站接入 hohu-admin-docs（详见 hohu-admin-docs 仓 `docs/guide/desktop/` 四页双语）
 
 ---
 
