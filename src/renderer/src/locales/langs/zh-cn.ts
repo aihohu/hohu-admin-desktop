@@ -15,7 +15,11 @@ export default {
   },
   page: {
     login: {
-      title: '登录 hohu-admin-desktop',
+      title: '登录',
+      brandName: 'hohu-admin-desktop',
+      slogan: 'AI 驱动 · 桌面原生',
+      fillDemo: '填入演示账号',
+      demoTooltip: '演示账号 admin / 123456',
       userName: '用户名',
       password: '密码',
       userNamePlaceholder: '请输入用户名',

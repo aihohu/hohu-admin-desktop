@@ -15,7 +15,11 @@ export default {
   },
   page: {
     login: {
-      title: 'Sign in to hohu-admin-desktop',
+      title: 'Sign in',
+      brandName: 'hohu-admin-desktop',
+      slogan: 'AI-Powered · Native desktop',
+      fillDemo: 'Fill demo credentials',
+      demoTooltip: 'Demo: admin / 123456',
       userName: 'Username',
       password: 'Password',
       userNamePlaceholder: 'Enter username',
