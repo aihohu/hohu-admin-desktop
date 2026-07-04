@@ -22,6 +22,10 @@
   <img src="https://img.shields.io/badge/pnpm->=10.5-F69220.svg" alt="pnpm" />
 </p>
 
+<p align="center">
+  <a href="./README.zh-CN.md">简体中文</a>
+</p>
+
 ---
 
 ## Screenshots
@@ -199,6 +203,69 @@ Auth endpoints:
 - `POST /auth/login` → `{ token, refreshToken }`
 - `POST /auth/refreshToken` → `{ token, refreshToken }`
 - `GET /auth/getUserInfo` → `{ userId, userName, roles, buttons, ... }`
+
+## Route Modes
+
+The framework ships with **two interchangeable routing modes** — flip a single env var, no code changes:
+
+| Mode                | Behavior                                                                                 | Use when                                                                |
+| ------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `dynamic` (default) | After login, fetches the menu from backend `/menu`, filters by the user's roles/buttons  | Integrating with **hohu-admin** backend                                 |
+| `static`            | Menu is hardcoded in `src/renderer/src/router/static-routes.ts`; no backend menu request | Forking into a standalone desktop app, offline scenarios, demo template |
+
+### Switch
+
+```bash
+# .env / .env.development / .env.production
+RENDERER_VITE_ROUTE_MODE=static   # or 'dynamic'
+```
+
+### Static mode in 30 seconds
+
+Edit `src/renderer/src/router/static-routes.ts`:
+
+```ts
+export const staticRoutes: Api.Route.UserRoute[] = [
+  {
+    name: 'home',
+    path: '/home',
+    component: 'layout.base$view.home', // layout + view merged
+    meta: { title: 'Home', icon: 'carbon:home', order: 0 }
+  },
+  {
+    name: 'myapp',
+    path: '/myapp',
+    component: 'layout.base', // layout container (parent)
+    meta: { title: 'My App', icon: 'carbon:app' },
+    children: [
+      {
+        name: 'myapp_dashboard',
+        path: '/myapp/dashboard',
+        component: 'view.myapp_dashboard', // view only (reuses parent's layout)
+        meta: { title: 'Dashboard', icon: 'carbon:dashboard' }
+      }
+    ]
+  }
+]
+```
+
+**Component descriptor conventions** (3 forms, see `router/transform.ts`):
+
+| Pattern                 | Means                                                       |
+| ----------------------- | ----------------------------------------------------------- |
+| `layout.base$view.home` | Single-level route: layout + view merged into one menu item |
+| `layout.base`           | Layout container (parent menu); must have `children`        |
+| `view.myapp_dashboard`  | Pure view, only valid as a child; reuses parent's layout    |
+
+**View key derivation** (see `router/components.ts`): `views/foo/bar/index.vue` → `foo_bar`. Files must be named `index.vue` to be glob-discovered.
+
+**RBAC in static mode**:
+
+- Menu visibility still respects `meta.roles` against `userInfo.roles` (which still comes from backend `/auth/getUserInfo`).
+- Button-level permissions (`v-permission`, `hasAuth()`, `TableHeaderOperation`) still work, sourced from `userInfo.buttons`.
+- The backend menu endpoint (`/menu`) is **never** called — works offline / without backend menu module.
+
+See [`src/renderer/src/router/static-routes.ts`](./src/renderer/src/router/static-routes.ts) for full field reference and a "how to add a new page" walkthrough.
 
 ## Documentation
 
