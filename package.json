@@ -1,11 +1,31 @@
 {
   "name": "hohu-admin-desktop",
   "version": "0.0.1",
-  "description": "hohu admin desktop client built with Electron + Vue + TypeScript",
+  "description": "Open-source Electron + Vue 3 desktop application framework for the hohu ecosystem",
   "main": "./out/main/index.js",
   "type": "module",
   "author": "hohu.org",
   "homepage": "https://www.hohu.org",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aihohu/hohu-admin-desktop.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aihohu/hohu-admin-desktop/issues"
+  },
+  "keywords": [
+    "electron",
+    "vue3",
+    "typescript",
+    "naive-ui",
+    "vite",
+    "electron-vite",
+    "desktop",
+    "scaffold",
+    "boilerplate",
+    "admin-dashboard",
+    "hohu"
+  ],
   "scripts": {
     "format": "prettier --write .",
     "fmt": "prettier --check .",

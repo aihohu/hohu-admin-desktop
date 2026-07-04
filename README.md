@@ -12,10 +12,6 @@
 </p>
 
 <p align="center">
-  <a href="./README.zh-CN.md">简体中文</a>
-</p>
-
-<p align="center">
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="license" />
   <img src="https://img.shields.io/badge/Electron-39-47848F.svg" alt="Electron" />
   <img src="https://img.shields.io/badge/Vue-3.5-42b883.svg" alt="Vue" />
@@ -28,6 +24,14 @@
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="./docs/screenshots/login.png" alt="Login" width="600" />
+  <img src="./docs/screenshots/main.png" alt="Main" width="600" />
+  <img src="./docs/screenshots/dark.png" alt="Dark mode" width="600" />
+</p>
+
 ## Introduction
 
 **hohu-admin-desktop** is an open-source **Electron + Vue 3 desktop application framework**. It pairs with [hohu-admin-web](https://github.com/aihohu/hohu-admin-web) (browser) and [hohu-admin-app](https://github.com/aihohu/hohu-admin-app) (mobile) to form the hohu ecosystem — all three front-ends consume the same [hohu-admin](https://github.com/aihohu/hohu-admin) FastAPI backend.
@@ -38,41 +42,42 @@ Designed for AI-first development: typed IPC, explicit contracts between process
 
 ## Features
 
-### Already implemented (Phase 1)
+### Foundation (Phase 1)
 
-- **Main-process HTTP forwarder** — All network requests route through Electron's `net` module via typed IPC, bypassing browser CORS without disabling security. Standard pattern used by VS Code / Slack / GitHub Desktop.
+- **Main-process HTTP forwarder** — All network requests route through Electron's `net` module via typed IPC, **bypassing browser CORS** without disabling security. Standard pattern used by VS Code / Slack / GitHub Desktop.
 - **Secure token storage** — JWT tokens encrypted by the OS keychain (macOS Keychain / Windows DPAPI / Linux libsecret) via Electron `safeStorage`, never written to `localStorage`.
 - **Typed IPC bridge** — Shared types in `src/shared/types.ts` flow through all three processes (main / preload / renderer) with zero `any`.
 - **Auth flow** — JWT login, single-flight token refresh, auto-login on app start.
 - **Flat request shape** — `const { data, error } = await fetchLogin(...)` — no try/catch needed.
+- **Dynamic routes + RBAC** — Backend-driven menu, glob component mapping, memory history, dual-mode (dynamic/static), `v-permission` directive + `hasAuth()` + `TableHeaderOperation`.
+- **Layout + theme + i18n** — dark mode (synced to `nativeTheme`), primary color presets, zh-cn / en-us, breadcrumb, sider collapse.
 - **Naive UI integrated** — Providers, composables (`useMessage`, `useDialog`, `useNotification`) ready to use.
-- **Code conventions** — ESLint, Prettier, TypeScript strict mode, Conventional Commits, `simple-git-hooks` pre-commit/commit-msg hooks.
-- **CI/Release** — GitHub Actions: typecheck + lint + fmt on PR; three-platform builds (Windows/macOS/Linux) on tag.
 
-### Planned (Phase 2 / 3)
+### Desktop differentiation (Phase 2)
 
-- Dynamic routes + RBAC (button-level permissions)
-- Layout system + theme drawer + dark mode
-- vue-i18n (zh-cn / en-us)
-- Tray + global shortcuts + system notifications
-- Auto-updater (`electron-updater`)
-- AI chat module (aligned with backend AI capabilities)
-- Overlay window / selection assistant / screenshot-to-AI demos
+- **Unified logging** (`electron-log`) — main / preload / renderer all write to `~/Library/Logs/{appName}/` (macOS) or platform equivalent.
+- **Persistent config** (`electron-store`) — window state, shortcuts, tray behavior, notification toggle, etc. persisted to `userData/config.json`.
+- **Window manager** — main-window singleton, window state (position, size, maximized, fullscreen) persists across restarts.
+- **System tray** — tray icon + right-click menu (Show/Hide / Reload / DevTools / Check for Updates / Quit); close button minimizes to tray.
+- **Global shortcuts** — default `Cmd/Ctrl+Shift+H` summons the window, configurable via IPC.
+- **Auto-updater** (`electron-updater` v6) — dual provider (GitHub Releases / Generic static URL), 24h background check throttle, skip-version, dev mode reads `dev-app-update.yml`.
+- **Notification dispatcher** — every `new Notification()` routed through one manager; renderer pushes via `window.api.notification.show()`; GC-safe retention, global mute, action callback hooks.
 
-See [`docs/framework-design.md`](./docs/framework-design.md) for the full roadmap.
+> See [`docs/framework-design.md`](./docs/framework-design.md) for the full roadmap and per-phase specs.
 
 ## Tech Stack
 
-| Category           | Technology                                |
-| ------------------ | ----------------------------------------- |
-| Shell              | Electron 39                               |
-| Build Tool         | electron-vite 5 (Vite 7 under the hood)   |
-| Framework          | Vue 3 (Composition API, `<script setup>`) |
-| Language           | TypeScript 5.9 (strict)                   |
-| UI Library         | NaiveUI 2.44                              |
-| State              | Pinia 3                                   |
-| HTTP Transport     | Electron `net` (via typed IPC, no axios)  |
-| Form Serialization | `qs` (main process only)                  |
+| Category           | Technology                                       |
+| ------------------ | ------------------------------------------------ |
+| Shell              | Electron 39                                      |
+| Build Tool         | electron-vite 5 (Vite 7 under the hood)          |
+| Framework          | Vue 3 (Composition API, `<script setup>`)        |
+| Language           | TypeScript 5.9 (strict)                          |
+| UI Library         | NaiveUI 2.44                                     |
+| State              | Pinia 3                                          |
+| HTTP Transport     | Electron `net` (via typed IPC, no axios)         |
+| Main-process libs  | electron-log / electron-store / electron-updater |
+| Form Serialization | `qs` (main process only)                         |
 
 ## Architecture
 
@@ -93,6 +98,8 @@ See [`docs/framework-design.md`](./docs/framework-design.md) for the full roadma
 │ Main (Node.js runtime — no CORS)                            │
 │   ipcMain.handle → net.request → backend                    │
 │   secureStore → safeStorage → OS keychain                   │
+│   WindowManager / TrayManager / ShortcutManager /           │
+│   UpdaterManager / NotificationManager                      │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ▼
@@ -121,7 +128,7 @@ pnpm install
 pnpm dev
 ```
 
-The renderer boots on `http://localhost:5173`; the Electron window opens automatically.
+The renderer boots on `http://localhost:5173`; the Electron window opens automatically. Main-process changes require restarting dev (HMR only covers the renderer).
 
 ### Build
 
@@ -139,11 +146,14 @@ pnpm build:linux
 pnpm build:unpack
 ```
 
+Artifacts land in `release/`.
+
 ### Quality Gates
 
 ```bash
 pnpm typecheck   # tsc (node) + vue-tsc (web)
 pnpm lint        # ESLint
+pnpm test        # node:test + tsx (pure-function unit tests)
 pnpm fmt         # Prettier check (CI gate)
 pnpm format      # Prettier auto-format
 ```
@@ -154,23 +164,25 @@ pnpm format      # Prettier auto-format
 src/
 ├── main/              # Main process (Node.js)
 │   ├── index.ts       # App lifecycle, window, IPC registration
-│   ├── services/      # http, secure-store
-│   └── ipc/           # ipcMain.handle registrations
+│   ├── services/      # WindowManager / TrayManager / ShortcutManager /
+│   │                  # UpdaterManager / NotificationManager / http / secure-store
+│   └── ipc/           # ipcMain.handle registrations (typed)
 ├── preload/           # Sandboxed bridge
 │   ├── index.ts       # contextBridge whitelist
 │   └── index.d.ts     # Window.api types
 ├── renderer/          # Renderer process (Vue 3)
 │   └── src/
-│       ├── views/         # Pages (login, dashboard)
+│       ├── views/         # Pages (login, home, _builtin)
 │       ├── components/
-│       ├── store/         # Pinia (auth)
+│       ├── store/         # Pinia (auth, theme, app, route)
 │       ├── service/       # Request factory + API wrappers
+│       ├── locales/       # zh-cn / en-us
 │       ├── typings/       # Api.* namespaces
 │       └── main.ts
 └── shared/            # Cross-process types (HttpConfig, AppApi, ...)
 ```
 
-Path aliases: `@renderer/*`, `@shared/*`, `@main/*` (configured in `tsconfig.*.json` and `electron.vite.config.ts`).
+Path aliases: `@renderer/*`, `@shared/*`, `@main/*`, `@resources/*` (configured in `tsconfig.*.json` and `electron.vite.config.ts`).
 
 ## Backend Integration
 
@@ -182,7 +194,7 @@ Path aliases: `@renderer/*`, `@shared/*`, `@main/*` (configured in `tsconfig.*.j
 | Response shape  | `{ code: number, msg: string, data: T }` |
 | Success code    | `200`                                    |
 
-Endpoints used in Phase 1:
+Auth endpoints:
 
 - `POST /auth/login` → `{ token, refreshToken }`
 - `POST /auth/refreshToken` → `{ token, refreshToken }`
@@ -192,15 +204,29 @@ Endpoints used in Phase 1:
 
 - [`CLAUDE.md`](./CLAUDE.md) — Project conventions, architecture decisions, common pitfalls (read this first when contributing)
 - [`docs/framework-design.md`](./docs/framework-design.md) — Full design rationale, three-phase roadmap, what-not-to-do list
+- Per-phase specs: `docs/spec-phase1-routes-rbac.md`, `docs/spec-phase2.{1,2,3,4}-*.md`
+
+## Platform Support
+
+| Platform | Auto-Update                                                                                                            | System Notifications                                               |
+| -------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Windows  | ✅ NSIS, works out of the box                                                                                          | ✅                                                                 |
+| macOS    | ⚠️ Requires code signing (Developer ID Application cert). Without it, can detect and download but install is rejected. | ✅                                                                 |
+| Linux    | ✅ AppImage (deb / snap don't support auto-update)                                                                     | ⚠️ Requires libnotify; no-op in containers / headless environments |
+
+Notarization is Apple's independent requirement for **first-time distribution**, unrelated to the auto-update flow. Neither signing nor notarization is configured by default — developers set these up when shipping their own apps.
 
 ## Contributing
 
-1. Fork → feature branch (`feature/*` or `fix/*`)
-2. Conventional Commits enforced (`feat:`, `fix:`, `chore:`, `docs:`, ...)
-3. Pre-commit hook runs: `typecheck && lint && fmt && git diff --exit-code`
-4. Open a PR against `main` — CI runs typecheck + lint + fmt
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md). PRs against `main` are welcome. Conventional Commits enforced; pre-commit hook runs `typecheck && lint && fmt && git diff --exit-code`.
 
-For skip-WIP commits: `git commit --no-verify` (use sparingly).
+## Security
+
+Found a vulnerability? See [`SECURITY.md`](./SECURITY.md) for disclosure.
+
+## Changelog
+
+See [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## License
 
