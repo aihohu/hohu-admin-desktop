@@ -9,12 +9,16 @@ import { permission } from './directives/permission'
 import { loadTokens } from './service/token'
 import { i18n } from './locales'
 import { useThemeStore } from './store/theme'
+import { setupTabPersist } from './store/tab'
 
 async function bootstrap(): Promise<void> {
   const app = createApp(App)
   app.use(createPinia())
   app.use(naive)
   app.use(i18n)
+
+  // 注册 tab store 的持久化 watcher（必须在 pinia 注册之后）
+  setupTabPersist()
 
   // ⚠️ 在 app.use(router) 之前预热 token，避免守卫首次导航的 IPC 延迟
   await loadTokens()

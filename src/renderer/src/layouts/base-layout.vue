@@ -1,16 +1,21 @@
 <script setup lang="ts">
-import { computed, h, ref } from 'vue'
+import { computed, h, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, useThemeVars, type MenuOption } from 'naive-ui'
 import { Icon as IconifyIcon } from '@iconify/vue'
 import { useAuthStore } from '../store/auth'
 import { useRouteStore } from '../store/route'
 import { useAppStore } from '../store/app'
+import { useTabStore } from '../store/tab'
 import { useI18nHelpers } from '../composables/use-i18n'
 import type { MenuItem } from '../store/route'
 import LangSwitch from './modules/lang-switch.vue'
 import Breadcrumb from './modules/breadcrumb.vue'
 import ThemeDrawer from './modules/theme-drawer.vue'
+import TabBar from '../components/tab/TabBar.vue'
+import TabPane from '../components/tab/TabPane.vue'
+import TabContextMenu from '../components/tab/TabContextMenu.vue'
+import SplitSash from '../components/tab/SplitSash.vue'
 
 defineOptions({ name: 'BaseLayout' })
 
@@ -18,11 +23,62 @@ const router = useRouter()
 const authStore = useAuthStore()
 const routeStore = useRouteStore()
 const appStore = useAppStore()
+const tabStore = useTabStore()
 const message = useMessage()
 const themeVars = useThemeVars()
 const { t } = useI18nHelpers()
 
 const showThemeDrawer = ref(false)
+
+// 上下文菜单状态（单例，位置驱动）
+const ctxMenu = reactive({
+  visible: false,
+  x: 0,
+  y: 0,
+  group: 'left' as App.Tab.TabGroupKey,
+  tabId: ''
+})
+
+function handleTabContextmenu(x: number, y: number, group: App.Tab.TabGroupKey, tabId: string): void {
+  ctxMenu.visible = false
+  // 等下一帧再开，避免同一菜单 close+open 抖动
+  setTimeout(() => {
+    Object.assign(ctxMenu, { visible: true, x, y, group, tabId })
+  }, 30)
+}
+
+// 分栏宽度拖拽
+const splitAreaRef = ref<HTMLElement>()
+const splitAreaWidth = ref(1)
+
+function updateSplitWidth(): void {
+  if (splitAreaRef.value) splitAreaWidth.value = splitAreaRef.value.clientWidth
+}
+
+function handleSashDrag(clientX: number): void {
+  if (!splitAreaRef.value) return
+  const rect = splitAreaRef.value.getBoundingClientRect()
+  const x = clientX - rect.left
+  const ratio = (x / rect.width) * 100
+  tabStore.setSplitRatio(ratio, rect.width)
+}
+
+function handleSashReset(): void {
+  tabStore.splitRatio = 50
+}
+
+onMounted(async () => {
+  // 冷启动恢复（guard 已确保是登录状态）
+  const ok = tabStore.restore()
+  if (!ok) {
+    tabStore.initHome()
+  }
+  updateSplitWidth()
+  window.addEventListener('resize', updateSplitWidth)
+})
+onUnmounted(() => {
+  window.removeEventListener('resize', updateSplitWidth)
+})
 
 // 把 NaiveUI 的主题变量桥接到 CSS 变量，让原生 HTML 元素也能跟随暗黑模式
 const cssVars = computed(() => ({
@@ -132,11 +188,31 @@ async function handleLogout(): Promise<void> {
       </header>
 
       <main class="layout-content">
-        <RouterView v-slot="{ Component }">
-          <KeepAlive :include="routeStore.cacheRoutes">
-            <component :is="Component" />
-          </KeepAlive>
-        </RouterView>
+        <div
+          ref="splitAreaRef"
+          class="content-wrap"
+          :class="{ split: tabStore.layout === 'split' }"
+          :style="{ '--tab-split-ratio': tabStore.splitRatio + '%' }"
+        >
+          <div class="pane-group pane-left">
+            <TabBar group="left" :show-layout-toggle="true" @contextmenu="handleTabContextmenu" />
+            <TabPane group="left" />
+          </div>
+          <template v-if="tabStore.layout === 'split'">
+            <SplitSash @update:ratio="handleSashDrag" @reset="handleSashReset" />
+            <div class="pane-group pane-right">
+              <TabBar group="right" @contextmenu="handleTabContextmenu" />
+              <TabPane group="right" />
+            </div>
+          </template>
+        </div>
+        <TabContextMenu
+          v-model:visible="ctxMenu.visible"
+          :x="ctxMenu.x"
+          :y="ctxMenu.y"
+          :group="ctxMenu.group"
+          :tab-id="ctxMenu.tabId"
+        />
       </main>
     </div>
 
@@ -248,7 +324,35 @@ async function handleLogout(): Promise<void> {
 
 .layout-content {
   flex: 1;
-  padding: 16px;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-wrap {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pane-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* 单栏：左栏占满 */
+.content-wrap:not(.split) .pane-left {
+  flex: 1;
+}
+
+/* 分栏：左栏按 ratio，右栏填满剩余 */
+.content-wrap.split .pane-left {
+  flex: 0 0 var(--tab-split-ratio, 50%);
+}
+.content-wrap.split .pane-right {
+  flex: 1;
 }
 </style>

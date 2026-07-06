@@ -178,6 +178,10 @@ Configured in `tsconfig.{node,web}.json` (paths) and `electron.vite.config.ts` (
 17. **`Notification.isSupported()` 在某些 Linux 容器 / 无桌面环境返回 false** — 框架启动时打一次 warn，之后 show 调用静默 return。Linux CI / Docker 测试环境遇到这条 warn 是预期，不是 bug。
 18. **`notificationManager` 不需要 `init()`** — 与 window/tray/shortcut/updater 不同，dispatcher 是纯被动模块。构造在模块加载时完成（`export const ... = new ...`），不需要在 `app.whenReady` 里调任何方法。这是有意设计（D6），不是漏写。
 19. **`Notification` 必须由 manager 持强引用** — dispatcher 流量比单调用点大，V8 GC 在用户点击前回收 Notification wrapper 会让 click handler 不触发。manager 内部用 `activeNotifications: Set<Notification>` 持引用，`close` / `failed` 事件触发时移除。直接 `new Notification()` 不入 set 是错的（D11）。
+20. **tab.id 是 `routeName|fullPath`**（Phase 2.5 tabs 系统）—— 关闭重开同一 tab 会复用 id、复用 KeepAlive 缓存。`moveToOtherGroup('copy')` 模式才会生成 `#suffix` 新 id（用于「在另一栏打开」需要独立实例的场景）。
+21. **`<RouterView>` 已不在 base-layout 内**（Phase 2.5 重构）—— base-layout 内容区由 `<TabPane>` 驱动，`router.afterEach` 同步左栏 tab。新增页面不需要改 base-layout，但要确保 `views/**/index.vue` 命名约定（见 `router/components.ts` 的 `pathToViewKey`）。
+22. **右栏 tab 不进 vue-router** —— 左栏活动 tab 通过 `router.push(tab.fullPath)` 同步 URL，右栏 tab 不影响 URL。这是有意的：避免 `beforeEach` guard 在右栏切换时跑 auth/redirect 逻辑。
+23. **tab 持久化在 localStorage 不在 electron-store** —— tab 状态是纯 renderer UI 偏好（与 darkMode/siderCollapse 同类），主进程不读，IPC 异步往返是浪费。key 是 `${RENDERER_VITE_STORAGE_PREFIX}tabs`。
 
 ## Git Workflow
 

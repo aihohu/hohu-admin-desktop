@@ -47,6 +47,10 @@ export const useAuthStore = defineStore('auth', {
       const { useRouteStore } = await import('./route')
       const routeStore = useRouteStore()
       await routeStore.initAuthRoutes()
+
+      // 初始化首页 tab
+      const { useTabStore } = await import('./tab')
+      useTabStore().initHome()
     },
 
     async getUserInfo() {
@@ -86,6 +90,10 @@ export const useAuthStore = defineStore('auth', {
       const { useRouteStore } = await import('./route')
       const routeStore = useRouteStore()
       routeStore.resetRoutes()
+
+      // 清空 tab
+      const { useTabStore } = await import('./tab')
+      useTabStore().reset()
 
       this.$reset()
     }

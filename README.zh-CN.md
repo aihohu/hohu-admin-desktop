@@ -67,6 +67,10 @@
 - **自动更新**（`electron-updater` v6）—— 双 provider（GitHub Releases / Generic 静态 URL）、24 小时后台检查节流、skip-version、dev 模式读 `dev-app-update.yml`。
 - **通知调度器** —— 每个 `new Notification()` 都走唯一管理器；渲染层通过 `window.api.notification.show()` 推送；GC 安全引用持有、全局静音、动作回调钩子。
 
+### Tab + 双栏拆分（Phase 2.5）
+
+- **双栏 tab 系统** —— VSCode 式左右分栏 + 拖拽 sash + 右键菜单（关闭/关闭其他/左/右/全部、固定/取消、移动到另一栏），中键关闭，状态持久化到 localStorage。
+
 > 完整路线图和分阶段 spec 见 [`docs/framework-design.md`](./docs/framework-design.md)。
 
 ## 技术栈

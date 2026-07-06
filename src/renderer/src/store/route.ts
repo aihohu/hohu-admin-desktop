@@ -107,6 +107,12 @@ export const useRouteStore = defineStore('route', {
       }
 
       this.isInitAuthRoute = true
+
+      // 路由模式切换 / 角色权限变更 → 重置 tab（老 tab 可能失效）
+      const { useTabStore } = await import('./tab')
+      const tabStore = useTabStore()
+      tabStore.reset()
+      tabStore.initHome()
     },
 
     /**

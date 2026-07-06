@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial public release as an open-source Electron + Vue 3 desktop framework.
+- **Dual-pane tabs**: VSCode-style split editor groups with drag-resize sash, right-click context menu (close/close-others/close-left/right/all, pin/unpin, move-to-other-group), persisted to localStorage.
 
 ### Foundation (Phase 1)
 

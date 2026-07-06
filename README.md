@@ -67,6 +67,10 @@ Designed for AI-first development: typed IPC, explicit contracts between process
 - **Auto-updater** (`electron-updater` v6) — dual provider (GitHub Releases / Generic static URL), 24h background check throttle, skip-version, dev mode reads `dev-app-update.yml`.
 - **Notification dispatcher** — every `new Notification()` routed through one manager; renderer pushes via `window.api.notification.show()`; GC-safe retention, global mute, action callback hooks.
 
+### Tabs + Dual-Pane Split (Phase 2.5)
+
+- **Dual-pane tabs** — VSCode-style split editor groups with drag-resize sash, right-click context menu (close/close-others/close-left/right/all, pin/unpin, move-to-other-group), middle-click close, persisted to localStorage.
+
 > See [`docs/framework-design.md`](./docs/framework-design.md) for the full roadmap and per-phase specs.
 
 ## Tech Stack
