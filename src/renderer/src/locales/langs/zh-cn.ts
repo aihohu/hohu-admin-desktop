@@ -27,7 +27,31 @@ export default {
       demoAccount: '演示账号',
       invalidCredentials: '请输入用户名和密码',
       loginFailed: '登录失败'
+    },
+    tabs: {
+      singleLayout: '单栏',
+      splitLayout: '左右分栏',
+      closeCurrent: '关闭',
+      closeOthers: '关闭其他',
+      closeLeft: '关闭左侧',
+      closeRight: '关闭右侧',
+      closeAll: '关闭全部',
+      pin: '固定标签',
+      unpin: '取消固定',
+      moveToOtherGroup: '移动到另一栏',
+      openInOtherGroup: '在另一栏打开'
     }
+  },
+  dropdown: {
+    closeCurrent: '关闭',
+    closeOther: '关闭其他',
+    closeLeft: '关闭左侧',
+    closeRight: '关闭右侧',
+    closeAll: '关闭全部',
+    pin: '固定标签',
+    unpin: '取消固定',
+    moveToOtherGroup: '移动到另一栏',
+    openInOtherGroup: '在另一栏打开'
   },
   theme: {
     title: '主题设置',

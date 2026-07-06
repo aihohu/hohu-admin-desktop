@@ -27,7 +27,31 @@ export default {
       demoAccount: 'Demo account',
       invalidCredentials: 'Please enter username and password',
       loginFailed: 'Login failed'
+    },
+    tabs: {
+      singleLayout: 'Single',
+      splitLayout: 'Split',
+      closeCurrent: 'Close',
+      closeOthers: 'Close Others',
+      closeLeft: 'Close Left',
+      closeRight: 'Close Right',
+      closeAll: 'Close All',
+      pin: 'Pin Tab',
+      unpin: 'Unpin Tab',
+      moveToOtherGroup: 'Move to Other Group',
+      openInOtherGroup: 'Open in Other Group'
     }
+  },
+  dropdown: {
+    closeCurrent: 'Close',
+    closeOther: 'Close Others',
+    closeLeft: 'Close Left',
+    closeRight: 'Close Right',
+    closeAll: 'Close All',
+    pin: 'Pin Tab',
+    unpin: 'Unpin Tab',
+    moveToOtherGroup: 'Move to Other Group',
+    openInOtherGroup: 'Open in Other Group'
   },
   theme: {
     title: 'Theme Settings',
