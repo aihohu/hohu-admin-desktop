@@ -64,7 +64,7 @@ function toggleLayout(): void {
         :title="tabStore.layout === 'single' ? t('page.tabs.splitLayout') : t('page.tabs.singleLayout')"
         @click="toggleLayout"
       >
-        <IconifyIcon :icon="tabStore.layout === 'single' ? 'carbon:columns' : 'carbon:column'" />
+        <IconifyIcon :icon="tabStore.layout === 'single' ? 'carbon:split-screen' : 'carbon:column'" />
       </button>
     </div>
   </div>
@@ -91,11 +91,17 @@ function toggleLayout(): void {
   scrollbar-width: thin;
 }
 .tab-strip::-webkit-scrollbar {
-  height: 4px;
+  height: 6px;
 }
 .tab-strip::-webkit-scrollbar-thumb {
-  background: var(--layout-border);
-  border-radius: 2px;
+  background: var(--layout-scrollbar);
+  border-radius: 3px;
+}
+.tab-strip::-webkit-scrollbar-thumb:hover {
+  background: var(--layout-scrollbar-hover);
+}
+.tab-strip::-webkit-scrollbar-track {
+  background: transparent;
 }
 .tab-tools {
   display: flex;

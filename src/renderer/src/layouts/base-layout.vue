@@ -6,6 +6,7 @@ import { Icon as IconifyIcon } from '@iconify/vue'
 import { useAuthStore } from '../store/auth'
 import { useRouteStore } from '../store/route'
 import { useAppStore } from '../store/app'
+import { useThemeStore } from '../store/theme'
 import { useTabStore } from '../store/tab'
 import { useI18nHelpers } from '../composables/use-i18n'
 import type { MenuItem } from '../store/route'
@@ -23,6 +24,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const routeStore = useRouteStore()
 const appStore = useAppStore()
+const themeStore = useThemeStore()
 const tabStore = useTabStore()
 const message = useMessage()
 const themeVars = useThemeVars()
@@ -86,8 +88,12 @@ const cssVars = computed(() => ({
   '--layout-header-bg': themeVars.value.cardColor,
   '--layout-content-bg': themeVars.value.bodyColor,
   '--layout-border': themeVars.value.dividerColor,
+  '--layout-scrollbar': themeVars.value.scrollbarColor,
+  '--layout-scrollbar-hover': themeVars.value.scrollbarColorHover,
   '--layout-text': themeVars.value.textColor1,
-  '--layout-text-2': themeVars.value.textColor3
+  '--layout-text-2': themeVars.value.textColor3,
+  // 让 Chromium 原生滚动条/表单控件跟随主题（TabPane 内 overflow:auto 的竖向滚动条靠这个）
+  'color-scheme': themeStore.darkMode ? 'dark' : 'light'
 }))
 
 function renderIcon(icon?: string): (() => ReturnType<typeof h>) | undefined {
