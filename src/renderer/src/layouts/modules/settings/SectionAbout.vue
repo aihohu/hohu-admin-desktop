@@ -92,7 +92,9 @@ async function handleAutoDownload(v: boolean): Promise<void> {
 
 <template>
   <section class="settings-section">
-    <h4 class="section-title">{{ t('settings.about.title') }}</h4>
+    <NDivider title-placement="left" class="section-title">
+      {{ t('settings.about.title') }}
+    </NDivider>
 
     <div class="row">
       <span>{{ t('settings.about.version') }}</span>
@@ -136,12 +138,8 @@ async function handleAutoDownload(v: boolean): Promise<void> {
   gap: 12px;
 }
 .section-title {
-  margin: 0 0 4px;
-  font-size: 13px;
-  color: var(--n-text-color-3, #999);
+  margin-top: 0;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 .row {
   display: flex;
