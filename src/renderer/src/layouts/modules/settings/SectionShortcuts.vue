@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useSettingsStore } from '../../../store/settings'
 import { useI18nHelpers } from '../../../composables/use-i18n'
@@ -18,10 +18,13 @@ const pendingAcc = ref<string>('')
 /** 录制态冲突标记 */
 const conflict = ref(false)
 
+const recordingInput = ref<HTMLInputElement | null>(null)
+
 function startRecording(action: string): void {
   recordingAction.value = action
   pendingAcc.value = ''
   conflict.value = false
+  void nextTick(() => recordingInput.value?.focus())
 }
 
 function cancelRecording(): void {
@@ -43,8 +46,11 @@ async function commitRecording(): Promise<void> {
     pendingAcc.value = ''
     conflict.value = false
   } else {
+    // 清空 pendingAcc 让「冲突，请重按」placeholder 显示；保留录制态等用户重按
+    pendingAcc.value = ''
     conflict.value = true
     message.warning(t('settings.shortcuts.conflictMessage'))
+    void nextTick(() => recordingInput.value?.focus())
   }
 }
 
