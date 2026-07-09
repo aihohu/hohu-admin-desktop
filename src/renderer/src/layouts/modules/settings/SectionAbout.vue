@@ -92,7 +92,7 @@ async function handleAutoDownload(v: boolean): Promise<void> {
 
 <template>
   <section class="settings-section">
-    <NDivider title-placement="left" class="section-title">
+    <NDivider class="section-title">
       {{ t('settings.about.title') }}
     </NDivider>
 

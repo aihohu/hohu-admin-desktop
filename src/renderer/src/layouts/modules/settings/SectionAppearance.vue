@@ -23,7 +23,7 @@ function selectColor(key: PresetColor): void {
 
 <template>
   <section class="settings-section">
-    <NDivider title-placement="left" class="section-title">
+    <NDivider class="section-title">
       {{ t('settings.appearance.title') }}
     </NDivider>
 
@@ -32,7 +32,7 @@ function selectColor(key: PresetColor): void {
       <NSwitch :value="themeStore.darkMode" @update:value="themeStore.setDark" />
     </div>
 
-    <div class="row vertical">
+    <div class="row">
       <span>{{ t('settings.appearance.primaryColor') }}</span>
       <div class="chips">
         <div
@@ -63,11 +63,6 @@ function selectColor(key: PresetColor): void {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-.row.vertical {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
 }
 .chips {
   display: flex;

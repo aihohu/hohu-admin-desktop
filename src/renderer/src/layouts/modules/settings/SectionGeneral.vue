@@ -53,7 +53,7 @@ const localeOptions = [
 
 <template>
   <section class="settings-section">
-    <NDivider title-placement="left" class="section-title">
+    <NDivider class="section-title">
       {{ t('settings.general.title') }}
     </NDivider>
 
@@ -68,7 +68,7 @@ const localeOptions = [
       <NSwitch :value="settingsStore.notificationsEnabled" @update:value="handleNotificationsEnabled" />
     </div>
 
-    <div class="row vertical">
+    <div class="row">
       <span>{{ t('settings.general.closeBehavior') }}</span>
       <NRadioGroup :value="closeBehavior" @update:value="(v: 'exit' | 'tray') => (closeBehavior = v)">
         <NRadio value="exit">{{ t('settings.general.closeToExit') }}</NRadio>
@@ -76,13 +76,13 @@ const localeOptions = [
       </NRadioGroup>
     </div>
 
-    <div class="row vertical">
+    <div class="row">
       <span>{{ t('settings.general.language') }}</span>
       <NSelect
         :value="appStore.locale"
         :options="localeOptions"
         size="small"
-        style="max-width: 200px"
+        style="max-width: 140px"
         @update:value="(v: Locale) => handleLocale(v)"
       />
     </div>
@@ -103,11 +103,6 @@ const localeOptions = [
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-.row.vertical {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
 }
 .hint {
   font-size: 12px;

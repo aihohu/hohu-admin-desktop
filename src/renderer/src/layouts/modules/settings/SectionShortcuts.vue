@@ -85,7 +85,7 @@ function displayAcc(action: string): string {
 
 <template>
   <section class="settings-section">
-    <NDivider title-placement="left" class="section-title">
+    <NDivider class="section-title">
       {{ t('settings.shortcuts.title') }}
     </NDivider>
 
