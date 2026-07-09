@@ -144,7 +144,10 @@ export const useSettingsStore = defineStore('settings', {
 
     async skipCurrentVersion(): Promise<void> {
       if (!this.updaterStatus.version) return
-      await window.api.updater.skipVersion(this.updaterStatus.version)
+      const version = this.updaterStatus.version
+      await window.api.updater.skipVersion(version)
+      this.updaterSkipVersion = version
+      this.updaterStatus = { ...this.updaterStatus, state: 'skipped' }
     },
 
     async installUpdate(): Promise<void> {
@@ -179,7 +182,7 @@ export const useSettingsStore = defineStore('settings', {
           this.updaterStatus = { ...s, state: 'downloaded', version: e.version, progress: 100, message: null }
           break
         case 'skipped':
-          this.updaterStatus = { ...s, state: 'skipped', message: null }
+          this.updaterStatus = { ...s, state: 'skipped', version: e.version, progress: null, message: null }
           break
         case 'error':
           this.updaterStatus = { ...s, state: 'error', message: e.message }

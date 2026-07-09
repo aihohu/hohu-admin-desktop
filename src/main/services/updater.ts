@@ -146,6 +146,11 @@ class UpdaterManagerClass {
     }
   }
 
+  /** 取消订阅（与 subscribe 返回的函数等价；暴露 public 供 IPC 层用） */
+  unsubscribe(fn: (e: UpdaterEvent) => void): void {
+    this.listeners.delete(fn)
+  }
+
   private emit(event: UpdaterEvent): void {
     for (const fn of this.listeners) {
       try {

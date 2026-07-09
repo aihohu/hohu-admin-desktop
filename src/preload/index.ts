@@ -94,7 +94,10 @@ const updater = {
       ipcRenderer.on('updater:event', wrapped)
       // 订阅动作本身走一次 IPC（触发 main 注册 listener）
       void ipcRenderer.invoke('updater:subscribe').then(() => {
-        resolve(() => ipcRenderer.removeListener('updater:event', wrapped))
+        resolve(() => {
+          ipcRenderer.removeListener('updater:event', wrapped)
+          void ipcRenderer.invoke('updater:unsubscribe')
+        })
       })
     })
 } as const

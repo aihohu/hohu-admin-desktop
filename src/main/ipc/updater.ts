@@ -2,12 +2,8 @@ import { ipcMain, type WebContents } from 'electron'
 import type { UpdaterEvent } from '@shared/types'
 import { updaterManager } from '../services/updater'
 
-/**
- * Updater IPC：
- * - 4 个 invoke handler（check / install / skipVersion / getStatus）
- * - 1 个 subscribe handler，订阅 UpdaterManager 事件流，转发为 webContents.send('updater:event')
- *   每个 webContents 独立订阅，destroyed 时清理（防内存泄漏）
- */
+const subscriptions = new Map<WebContents, (e: UpdaterEvent) => void>()
+
 export function registerUpdaterIpc(): void {
   ipcMain.handle('updater:check', async (_e, forced?: boolean) => {
     await updaterManager.check(!!forced)
@@ -26,12 +22,37 @@ export function registerUpdaterIpc(): void {
 
   ipcMain.handle('updater:subscribe', event => {
     const webContents = event.sender as WebContents
-    const unsubscribe = updaterManager.subscribe((e: UpdaterEvent) => {
-      // 窗口已销毁则不再发送
+    // 已有订阅先清掉，避免同一 webContents 重复订阅
+    const existing = subscriptions.get(webContents)
+    if (existing) {
+      updaterManager.unsubscribe(existing)
+    }
+
+    const listener = (e: UpdaterEvent): void => {
       if (!webContents.isDestroyed()) {
         webContents.send('updater:event', e)
       }
-    })
-    webContents.once('destroyed', unsubscribe)
+    }
+    subscriptions.set(webContents, listener)
+    updaterManager.subscribe(listener)
+
+    const cleanup = (): void => {
+      const cur = subscriptions.get(webContents)
+      if (cur === listener) {
+        updaterManager.unsubscribe(cur)
+        subscriptions.delete(webContents)
+      }
+      webContents.removeListener('destroyed', cleanup)
+    }
+    webContents.once('destroyed', cleanup)
+  })
+
+  ipcMain.handle('updater:unsubscribe', event => {
+    const webContents = event.sender as WebContents
+    const listener = subscriptions.get(webContents)
+    if (listener) {
+      updaterManager.unsubscribe(listener)
+      subscriptions.delete(webContents)
+    }
   })
 }
