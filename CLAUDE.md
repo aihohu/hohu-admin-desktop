@@ -182,6 +182,7 @@ Configured in `tsconfig.{node,web}.json` (paths) and `electron.vite.config.ts` (
 21. **`<RouterView>` 已不在 base-layout 内**（Phase 2.5 重构）—— base-layout 内容区由 `<TabPane>` 驱动，`router.afterEach` 同步左栏 tab。新增页面不需要改 base-layout，但要确保 `views/**/index.vue` 命名约定（见 `router/components.ts` 的 `pathToViewKey`）。
 22. **右栏 tab 不进 vue-router** —— 左栏活动 tab 通过 `router.push(tab.fullPath)` 同步 URL，右栏 tab 不影响 URL。这是有意的：避免 `beforeEach` guard 在右栏切换时跑 auth/redirect 逻辑。
 23. **tab 持久化在 localStorage 不在 electron-store** —— tab 状态是纯 renderer UI 偏好（与 darkMode/siderCollapse 同类），主进程不读，IPC 异步往返是浪费。key 是 `${RENDERER_VITE_STORAGE_PREFIX}tabs`。
+24. **macOS 开机自启依赖 sandbox=false**（Phase 2.6 设置抽屉）—— `app.setLoginItemSettings({ openAtLogin: true })` 在 sandbox 启用时会被 macOS 拒绝（需要 entitlements）。当前 `sandbox: false` 开箱可用；将来 Phase 2.7+ 收紧 sandbox 时此项可能失效，需要补充 `com.apple.security.login-item` entitlement 并测试。
 
 ## Git Workflow
 
