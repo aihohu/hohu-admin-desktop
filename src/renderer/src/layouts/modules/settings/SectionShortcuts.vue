@@ -84,40 +84,35 @@ function displayAcc(action: string): string {
 </script>
 
 <template>
-  <section class="settings-section">
-    <NDivider class="section-title">
-      {{ t('settings.shortcuts.title') }}
-    </NDivider>
-
-    <div class="shortcut-row">
-      <span class="label">{{ t('settings.shortcuts.toggleWindow') }}</span>
-      <input
-        v-if="recordingAction === 'toggleWindow'"
-        ref="recordingInput"
-        class="acc-input"
-        :class="{ conflict }"
-        :value="pendingAcc ? formatAccelerator(pendingAcc, settingsStore.platform) : ''"
-        :placeholder="conflict ? t('settings.shortcuts.conflict') : t('settings.shortcuts.recording')"
-        readonly
-        @keydown="onKeydown"
-        @blur="cancelRecording"
-      />
-      <button v-else type="button" class="acc-display" @click="startRecording('toggleWindow')">
-        {{ displayAcc('toggleWindow') || '—' }}
-      </button>
+  <div>
+    <NDivider>{{ t('settings.shortcuts.title') }}</NDivider>
+    <div class="rows">
+      <div class="shortcut-row">
+        <span class="label">{{ t('settings.shortcuts.toggleWindow') }}</span>
+        <input
+          v-if="recordingAction === 'toggleWindow'"
+          ref="recordingInput"
+          class="acc-input"
+          :class="{ conflict }"
+          :value="pendingAcc ? formatAccelerator(pendingAcc, settingsStore.platform) : ''"
+          :placeholder="conflict ? t('settings.shortcuts.conflict') : t('settings.shortcuts.recording')"
+          readonly
+          @keydown="onKeydown"
+          @blur="cancelRecording"
+        />
+        <button v-else type="button" class="acc-display" @click="startRecording('toggleWindow')">
+          {{ displayAcc('toggleWindow') || '—' }}
+        </button>
+      </div>
     </div>
-  </section>
+  </div>
 </template>
 
 <style scoped>
-.settings-section {
+.rows {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-.section-title {
-  margin-top: 0;
-  font-weight: 500;
 }
 .shortcut-row {
   display: flex;

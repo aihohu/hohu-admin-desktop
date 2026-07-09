@@ -91,55 +91,50 @@ async function handleAutoDownload(v: boolean): Promise<void> {
 </script>
 
 <template>
-  <section class="settings-section">
-    <NDivider class="section-title">
-      {{ t('settings.about.title') }}
-    </NDivider>
+  <div>
+    <NDivider>{{ t('settings.about.title') }}</NDivider>
+    <div class="rows">
+      <div class="row">
+        <span>{{ t('settings.about.version') }}</span>
+        <code>v{{ settingsStore.appVersion }}</code>
+      </div>
 
-    <div class="row">
-      <span>{{ t('settings.about.version') }}</span>
-      <code>v{{ settingsStore.appVersion }}</code>
+      <div class="row">
+        <span>{{ t('settings.about.autoDownload') }}</span>
+        <NSwitch :value="settingsStore.updaterAutoDownload" @update:value="handleAutoDownload" />
+      </div>
+
+      <div class="updater-actions">
+        <NButton
+          v-if="!showInstall"
+          type="primary"
+          size="small"
+          :loading="status.state === 'checking'"
+          :disabled="checkDisabled"
+          @click="handleCheck"
+        >
+          {{ checkText }}
+        </NButton>
+        <NButton v-if="showInstall" type="primary" size="small" @click="handleInstall">
+          {{ t('settings.about.downloadAndRestart') }}
+        </NButton>
+        <NButton v-if="showSkip" size="small" @click="handleSkip">
+          {{ t('settings.about.skipVersion') }}
+        </NButton>
+      </div>
+
+      <NProgress v-if="showProgress" :percentage="status.progress ?? 0" :height="6" :show-indicator="false" />
+
+      <div v-if="subtitle" class="subtitle">{{ subtitle }}</div>
     </div>
-
-    <div class="row">
-      <span>{{ t('settings.about.autoDownload') }}</span>
-      <NSwitch :value="settingsStore.updaterAutoDownload" @update:value="handleAutoDownload" />
-    </div>
-
-    <div class="updater-actions">
-      <NButton
-        v-if="!showInstall"
-        type="primary"
-        size="small"
-        :loading="status.state === 'checking'"
-        :disabled="checkDisabled"
-        @click="handleCheck"
-      >
-        {{ checkText }}
-      </NButton>
-      <NButton v-if="showInstall" type="primary" size="small" @click="handleInstall">
-        {{ t('settings.about.downloadAndRestart') }}
-      </NButton>
-      <NButton v-if="showSkip" size="small" @click="handleSkip">
-        {{ t('settings.about.skipVersion') }}
-      </NButton>
-    </div>
-
-    <NProgress v-if="showProgress" :percentage="status.progress ?? 0" :height="6" :show-indicator="false" />
-
-    <div v-if="subtitle" class="subtitle">{{ subtitle }}</div>
-  </section>
+  </div>
 </template>
 
 <style scoped>
-.settings-section {
+.rows {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-.section-title {
-  margin-top: 0;
-  font-weight: 500;
 }
 .row {
   display: flex;

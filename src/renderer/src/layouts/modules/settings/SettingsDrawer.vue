@@ -39,13 +39,13 @@ async function retryLoad(): Promise<void> {
 
 <template>
   <NDrawer v-model:show="showModel" :width="400" placement="right">
-    <NDrawerContent :title="t('settings.title')" closable>
+    <NDrawerContent :title="t('settings.title')" closable :native-scrollbar="false">
       <NSpin :show="!settingsStore.loaded && !settingsStore.loadError">
         <div v-if="settingsStore.loadError" class="error-state">
           <p>{{ t('settings.shortcuts.saveFailed') }}</p>
           <NButton size="small" @click="retryLoad">Retry</NButton>
         </div>
-        <NSpace v-else vertical :size="20">
+        <NSpace v-else vertical :size="24">
           <SectionGeneral :key="`g-${reloadKey}`" />
           <SectionAppearance :key="`a-${reloadKey}`" />
           <SectionShortcuts :key="`s-${reloadKey}`" />

@@ -52,52 +52,47 @@ const localeOptions = [
 </script>
 
 <template>
-  <section class="settings-section">
-    <NDivider class="section-title">
-      {{ t('settings.general.title') }}
-    </NDivider>
+  <div>
+    <NDivider>{{ t('settings.general.title') }}</NDivider>
+    <div class="rows">
+      <div class="row">
+        <span>{{ t('settings.general.launchAtLogin') }}</span>
+        <NSwitch :value="settingsStore.launchAtLogin" :disabled="isLinux" @update:value="handleLaunchAtLogin" />
+      </div>
+      <div v-if="isLinux" class="hint">{{ t('settings.general.launchAtLoginUnsupported') }}</div>
 
-    <div class="row">
-      <span>{{ t('settings.general.launchAtLogin') }}</span>
-      <NSwitch :value="settingsStore.launchAtLogin" :disabled="isLinux" @update:value="handleLaunchAtLogin" />
-    </div>
-    <div v-if="isLinux" class="hint">{{ t('settings.general.launchAtLoginUnsupported') }}</div>
+      <div class="row">
+        <span>{{ t('settings.general.notificationsEnabled') }}</span>
+        <NSwitch :value="settingsStore.notificationsEnabled" @update:value="handleNotificationsEnabled" />
+      </div>
 
-    <div class="row">
-      <span>{{ t('settings.general.notificationsEnabled') }}</span>
-      <NSwitch :value="settingsStore.notificationsEnabled" @update:value="handleNotificationsEnabled" />
-    </div>
+      <div class="row">
+        <span>{{ t('settings.general.closeBehavior') }}</span>
+        <NRadioGroup :value="closeBehavior" @update:value="(v: 'exit' | 'tray') => (closeBehavior = v)">
+          <NRadio value="exit">{{ t('settings.general.closeToExit') }}</NRadio>
+          <NRadio value="tray">{{ t('settings.general.closeToTray') }}</NRadio>
+        </NRadioGroup>
+      </div>
 
-    <div class="row">
-      <span>{{ t('settings.general.closeBehavior') }}</span>
-      <NRadioGroup :value="closeBehavior" @update:value="(v: 'exit' | 'tray') => (closeBehavior = v)">
-        <NRadio value="exit">{{ t('settings.general.closeToExit') }}</NRadio>
-        <NRadio value="tray">{{ t('settings.general.closeToTray') }}</NRadio>
-      </NRadioGroup>
+      <div class="row">
+        <span>{{ t('settings.general.language') }}</span>
+        <NSelect
+          :value="appStore.locale"
+          :options="localeOptions"
+          size="small"
+          style="max-width: 140px"
+          @update:value="(v: Locale) => handleLocale(v)"
+        />
+      </div>
     </div>
-
-    <div class="row">
-      <span>{{ t('settings.general.language') }}</span>
-      <NSelect
-        :value="appStore.locale"
-        :options="localeOptions"
-        size="small"
-        style="max-width: 140px"
-        @update:value="(v: Locale) => handleLocale(v)"
-      />
-    </div>
-  </section>
+  </div>
 </template>
 
 <style scoped>
-.settings-section {
+.rows {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-.section-title {
-  margin-top: 0;
-  font-weight: 500;
+  gap: 12px;
 }
 .row {
   display: flex;
@@ -107,6 +102,6 @@ const localeOptions = [
 .hint {
   font-size: 12px;
   color: var(--n-text-color-3, #999);
-  margin-top: -8px;
+  margin-top: -4px;
 }
 </style>

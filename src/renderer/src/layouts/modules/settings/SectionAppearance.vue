@@ -22,42 +22,37 @@ function selectColor(key: PresetColor): void {
 </script>
 
 <template>
-  <section class="settings-section">
-    <NDivider class="section-title">
-      {{ t('settings.appearance.title') }}
-    </NDivider>
+  <div>
+    <NDivider>{{ t('settings.appearance.title') }}</NDivider>
+    <div class="rows">
+      <div class="row">
+        <span>{{ t('settings.appearance.darkMode') }}</span>
+        <NSwitch :value="themeStore.darkMode" @update:value="themeStore.setDark" />
+      </div>
 
-    <div class="row">
-      <span>{{ t('settings.appearance.darkMode') }}</span>
-      <NSwitch :value="themeStore.darkMode" @update:value="themeStore.setDark" />
-    </div>
-
-    <div class="row">
-      <span>{{ t('settings.appearance.primaryColor') }}</span>
-      <div class="chips">
-        <div
-          v-for="opt in colorOptions"
-          :key="opt.key"
-          class="chip"
-          :class="{ active: themeStore.primaryColor === opt.key }"
-          :style="{ backgroundColor: opt.color }"
-          :title="opt.label"
-          @click="selectColor(opt.key)"
-        />
+      <div class="row">
+        <span>{{ t('settings.appearance.primaryColor') }}</span>
+        <div class="chips">
+          <div
+            v-for="opt in colorOptions"
+            :key="opt.key"
+            class="chip"
+            :class="{ active: themeStore.primaryColor === opt.key }"
+            :style="{ backgroundColor: opt.color }"
+            :title="opt.label"
+            @click="selectColor(opt.key)"
+          />
+        </div>
       </div>
     </div>
-  </section>
+  </div>
 </template>
 
 <style scoped>
-.settings-section {
+.rows {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-.section-title {
-  margin-top: 0;
-  font-weight: 500;
+  gap: 12px;
 }
 .row {
   display: flex;
