@@ -125,6 +125,8 @@ export interface UpdaterStatus {
   progress: number | null
   lastCheck: number | null
   skipVersion: string | null
+  /** Phase 2.6：error 状态下的错误消息；其他状态为 null */
+  message: string | null
 }
 
 export type UpdaterEvent =

@@ -54,7 +54,9 @@ const subtitle = computed(() => {
   if (status.value.state === 'skipped' && status.value.version) {
     return t('settings.about.skipped', { version: status.value.version })
   }
-  if (status.value.state === 'error') return t('settings.about.errorMessage', { message: '' })
+  if (status.value.state === 'error') {
+    return t('settings.about.errorMessage', { message: status.value.message ?? '' })
+  }
   return ''
 })
 

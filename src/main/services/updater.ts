@@ -23,6 +23,7 @@ class UpdaterManagerClass {
   private state: UpdaterState = 'idle'
   private pendingVersion: string | null = null
   private pendingProgress: number | null = null
+  private errorMessage: string | null = null
   /**
    * 当前下载所用的取消令牌。autoDownload=false 时由本类自行调
    * autoUpdater.downloadUpdate(token)，skipVersion 命中时 token.cancel()。
@@ -84,6 +85,7 @@ class UpdaterManagerClass {
     }
 
     this.state = 'checking'
+    this.errorMessage = null
     try {
       const result = await autoUpdater.checkForUpdates()
       // 无论结果如何都更新 lastCheck（避免检查失败后下次启动立刻重试）
@@ -92,6 +94,8 @@ class UpdaterManagerClass {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       this.state = 'error'
+      this.errorMessage = message
+      this.emit({ type: 'error', message })
       logger.error('check failed', message)
       return null
     }
@@ -119,6 +123,7 @@ class UpdaterManagerClass {
       }
     }
     this.state = 'skipped'
+    this.errorMessage = null
     logger.info(`skipped version ${version}`)
   }
 
@@ -128,7 +133,8 @@ class UpdaterManagerClass {
       version: this.pendingVersion,
       progress: this.pendingProgress,
       lastCheck: store.get('updater').lastCheck,
-      skipVersion: store.get('updater').skipVersion
+      skipVersion: store.get('updater').skipVersion,
+      message: this.errorMessage
     }
   }
 
@@ -153,6 +159,7 @@ class UpdaterManagerClass {
   private wireEvents(): void {
     autoUpdater.on('checking-for-update', () => {
       this.state = 'checking'
+      this.errorMessage = null
       this.emit({ type: 'checking' })
       logger.info('checking for update')
     })
@@ -162,11 +169,13 @@ class UpdaterManagerClass {
       // skipVersion 命中：标记 skipped，不发起点播下载
       if (isSkipped(info.version, store.get('updater').skipVersion)) {
         this.state = 'skipped'
+        this.errorMessage = null
         this.emit({ type: 'skipped', version: info.version })
         logger.info(`version ${info.version} skipped by user`)
         return
       }
       this.state = 'available'
+      this.errorMessage = null
       this.emit({ type: 'available', version: info.version })
       logger.info(`update available: ${info.version}`)
       // Phase 2.6：autoDownload flag 控制。true（默认）→ 立即下载；false → 停在 available 等用户操作
@@ -182,6 +191,7 @@ class UpdaterManagerClass {
 
     autoUpdater.on('update-not-available', () => {
       this.state = 'not-available'
+      this.errorMessage = null
       this.emit({ type: 'not-available' })
       logger.info('up to date')
     })
@@ -189,6 +199,7 @@ class UpdaterManagerClass {
     autoUpdater.on('error', (err: Error, message?: string) => {
       const text = message ?? err.message
       this.state = 'error'
+      this.errorMessage = text
       this.emit({ type: 'error', message: text })
       logger.error('updater error', text)
     })
@@ -196,6 +207,7 @@ class UpdaterManagerClass {
     autoUpdater.on('download-progress', progress => {
       this.pendingProgress = Math.round(progress.percent)
       this.state = 'downloading'
+      this.errorMessage = null
       this.emit({ type: 'progress', percent: this.pendingProgress })
       logger.debug(`download progress ${this.pendingProgress}%`)
     })
@@ -205,6 +217,7 @@ class UpdaterManagerClass {
       this.pendingProgress = 100
       this.downloadToken = null
       this.state = 'downloaded'
+      this.errorMessage = null
       this.emit({ type: 'downloaded', version: info.version })
       logger.info(`update downloaded: ${info.version}`)
       // 唯一弹系统通知的节点

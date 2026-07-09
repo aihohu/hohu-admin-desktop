@@ -26,7 +26,8 @@ const IDLE_STATUS: UpdaterStatus = {
   version: null,
   progress: null,
   lastCheck: null,
-  skipVersion: null
+  skipVersion: null,
+  message: null
 }
 
 /**
@@ -156,32 +157,32 @@ export const useSettingsStore = defineStore('settings', {
     },
 
     /**
-     * 应用 UpdaterEvent：只更新 state/version/progress 三个字段。
+     * 应用 UpdaterEvent：只更新 state/version/progress/message 四个字段。
      * lastCheck/skipVersion 不动（避免覆盖 getStatus() 拉到的初始值）。
      */
     applyUpdaterEvent(e: UpdaterEvent): void {
       const s = this.updaterStatus
       switch (e.type) {
         case 'checking':
-          this.updaterStatus = { ...s, state: 'checking' }
+          this.updaterStatus = { ...s, state: 'checking', message: null }
           break
         case 'available':
-          this.updaterStatus = { ...s, state: 'available', version: e.version, progress: null }
+          this.updaterStatus = { ...s, state: 'available', version: e.version, progress: null, message: null }
           break
         case 'not-available':
-          this.updaterStatus = { ...s, state: 'not-available' }
+          this.updaterStatus = { ...s, state: 'not-available', message: null }
           break
         case 'progress':
-          this.updaterStatus = { ...s, state: 'downloading', progress: e.percent }
+          this.updaterStatus = { ...s, state: 'downloading', progress: e.percent, message: null }
           break
         case 'downloaded':
-          this.updaterStatus = { ...s, state: 'downloaded', version: e.version, progress: 100 }
+          this.updaterStatus = { ...s, state: 'downloaded', version: e.version, progress: 100, message: null }
           break
         case 'skipped':
-          this.updaterStatus = { ...s, state: 'skipped' }
+          this.updaterStatus = { ...s, state: 'skipped', message: null }
           break
         case 'error':
-          this.updaterStatus = { ...s, state: 'error' }
+          this.updaterStatus = { ...s, state: 'error', message: e.message }
           break
       }
     }
