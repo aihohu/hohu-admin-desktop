@@ -5,7 +5,7 @@ const defaults: StoreSchema = {
   windowState: { width: 1280, height: 800, x: null, y: null },
   shortcuts: {}, // 2.2 填默认快捷键
   tray: { closeToTray: true },
-  updater: { skipVersion: null, lastCheck: null },
+  updater: { skipVersion: null, lastCheck: null, autoDownload: true },
   notifications: { enabled: true }
 }
 
@@ -43,9 +43,10 @@ const schema = {
     additionalProperties: false,
     properties: {
       skipVersion: { type: ['string', 'null'] },
-      lastCheck: { type: ['number', 'null'] }
+      lastCheck: { type: ['number', 'null'] },
+      autoDownload: { type: 'boolean' }
     },
-    required: ['skipVersion', 'lastCheck']
+    required: ['skipVersion', 'lastCheck', 'autoDownload']
   },
   notifications: {
     type: 'object',

@@ -169,14 +169,15 @@ class UpdaterManagerClass {
       this.state = 'available'
       this.emit({ type: 'available', version: info.version })
       logger.info(`update available: ${info.version}`)
-      // autoDownload=false → 此处显式触发下载，携带 token 供后续 skip 用
-      this.downloadToken = new CancellationToken()
-      void autoUpdater.downloadUpdate(this.downloadToken).catch((e: unknown) => {
-        // skipVersion 触发的取消会进入这里，吞掉；其它错误走 error 事件
-        if (this.state !== 'skipped') {
-          logger.warn('downloadUpdate rejected', String(e))
-        }
-      })
+      // Phase 2.6：autoDownload flag 控制。true（默认）→ 立即下载；false → 停在 available 等用户操作
+      if (store.get('updater').autoDownload) {
+        this.downloadToken = new CancellationToken()
+        void autoUpdater.downloadUpdate(this.downloadToken).catch((e: unknown) => {
+          if (this.state !== 'skipped') {
+            logger.warn('downloadUpdate rejected', String(e))
+          }
+        })
+      }
     })
 
     autoUpdater.on('update-not-available', () => {

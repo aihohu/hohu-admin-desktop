@@ -60,6 +60,8 @@ export interface StoreSchema {
   updater: {
     skipVersion: string | null
     lastCheck: number | null
+    /** Phase 2.6：update-available 事件里是否自动触发下载。false 时停在 available 状态等用户手动下载。 */
+    autoDownload: boolean
   }
   /** 系统通知（Phase 2.4 用） */
   notifications: {
