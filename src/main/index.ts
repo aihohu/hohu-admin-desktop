@@ -7,7 +7,6 @@ import { windowManager } from './services/window'
 import { trayManager } from './services/tray'
 import { shortcutManager } from './services/shortcut'
 import { updaterManager } from './services/updater'
-import { store } from './services/store'
 import { registerAllIpc } from './ipc'
 
 // 单例锁：第二次启动直接 focus 已有窗口
@@ -98,7 +97,7 @@ if (!gotLock) {
     // macOS 约定：关掉最后一个窗口不退出，留在 dock。
     // 但用户在设置里明确选「退出应用」(closeToTray=false) 时应直接退出。
     // close-to-tray=true（默认）模式下窗口被 hide 而非 close，window-all-closed 不会触发。
-    if (process.platform === 'darwin' && !isQuitting && store.get('tray').closeToTray) {
+    if (process.platform === 'darwin' && !isQuitting && trayManager.shouldCloseToTray()) {
       return
     }
     shortcutManager.unregisterAll()

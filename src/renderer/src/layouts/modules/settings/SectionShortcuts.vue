@@ -19,6 +19,7 @@ const pendingAcc = ref<string>('')
 const conflict = ref(false)
 
 const recordingInput = ref<HTMLInputElement | null>(null)
+const suppressBlur = ref(false)
 
 function startRecording(action: string): void {
   recordingAction.value = action
@@ -31,6 +32,14 @@ function cancelRecording(): void {
   recordingAction.value = null
   pendingAcc.value = ''
   conflict.value = false
+}
+
+function onInputBlur(): void {
+  if (suppressBlur.value) {
+    suppressBlur.value = false
+    return
+  }
+  cancelRecording()
 }
 
 async function commitRecording(): Promise<void> {
@@ -50,6 +59,8 @@ async function commitRecording(): Promise<void> {
     pendingAcc.value = ''
     conflict.value = true
     message.warning(t('settings.shortcuts.conflictMessage'))
+    // 阻止 warning 触发的 blur 取消录制；下一帧重新 focus
+    suppressBlur.value = true
     void nextTick(() => recordingInput.value?.focus())
   }
 }
@@ -98,7 +109,7 @@ function displayAcc(action: string): string {
           :placeholder="conflict ? t('settings.shortcuts.conflict') : t('settings.shortcuts.recording')"
           readonly
           @keydown="onKeydown"
-          @blur="cancelRecording"
+          @blur="onInputBlur"
         />
         <button v-else type="button" class="acc-display" @click="startRecording('toggleWindow')">
           {{ displayAcc('toggleWindow') || '—' }}
