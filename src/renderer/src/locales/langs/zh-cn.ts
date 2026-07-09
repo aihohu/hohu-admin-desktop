@@ -64,6 +64,45 @@ export default {
       red: '红色'
     }
   },
+  settings: {
+    title: '设置',
+    general: {
+      title: '通用',
+      launchAtLogin: '开机自启',
+      launchAtLoginUnsupported: '当前平台不支持',
+      closeBehavior: '关闭按钮行为',
+      closeToExit: '退出应用',
+      closeToTray: '最小化到托盘',
+      notificationsEnabled: '启用系统通知',
+      language: '语言'
+    },
+    appearance: {
+      title: '外观',
+      darkMode: '暗黑模式',
+      primaryColor: '主色'
+    },
+    shortcuts: {
+      title: '快捷键',
+      toggleWindow: '唤起窗口',
+      recording: '按下组合键…',
+      conflict: '冲突，请重按',
+      saveFailed: '保存失败',
+      conflictMessage: '快捷键冲突，请换一个'
+    },
+    about: {
+      title: '关于',
+      version: '版本',
+      checkUpdate: '检查更新',
+      checking: '正在检查…',
+      downloading: '下载中…',
+      notAvailable: '已是最新版本',
+      skipVersion: '跳过此版本',
+      skipped: '已跳过 v{version}',
+      downloadAndRestart: '下载并重启',
+      autoDownload: '自动下载更新',
+      errorMessage: '错误：{message}'
+    }
+  },
   // 路由菜单翻译：与后端 meta.i18nKey 对齐，key 格式 'route.<route_name>'
   // 注意：连字符 key 需要加引号（JS 对象 key 含特殊字符）
   route: {

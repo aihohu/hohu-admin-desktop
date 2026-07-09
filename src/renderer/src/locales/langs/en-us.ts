@@ -64,6 +64,45 @@ export default {
       red: 'Red'
     }
   },
+  settings: {
+    title: 'Settings',
+    general: {
+      title: 'General',
+      launchAtLogin: 'Launch at login',
+      launchAtLoginUnsupported: 'Not supported on this platform',
+      closeBehavior: 'Close button behavior',
+      closeToExit: 'Quit application',
+      closeToTray: 'Minimize to tray',
+      notificationsEnabled: 'Enable system notifications',
+      language: 'Language'
+    },
+    appearance: {
+      title: 'Appearance',
+      darkMode: 'Dark mode',
+      primaryColor: 'Primary color'
+    },
+    shortcuts: {
+      title: 'Shortcuts',
+      toggleWindow: 'Toggle window',
+      recording: 'Press combination…',
+      conflict: 'Conflict, try again',
+      saveFailed: 'Save failed',
+      conflictMessage: 'Shortcut conflict, try another'
+    },
+    about: {
+      title: 'About',
+      version: 'Version',
+      checkUpdate: 'Check for updates',
+      checking: 'Checking…',
+      downloading: 'Downloading…',
+      notAvailable: 'You are on the latest version',
+      skipVersion: 'Skip this version',
+      skipped: 'Skipped v{version}',
+      downloadAndRestart: 'Download and restart',
+      autoDownload: 'Auto-download updates',
+      errorMessage: 'Error: {message}'
+    }
+  },
   route: {
     home: 'Home',
     ai: 'AI Assistant',
