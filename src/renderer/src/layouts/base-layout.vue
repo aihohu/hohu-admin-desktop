@@ -12,7 +12,7 @@ import { useI18nHelpers } from '../composables/use-i18n'
 import type { MenuItem } from '../store/route'
 import LangSwitch from './modules/lang-switch.vue'
 import Breadcrumb from './modules/breadcrumb.vue'
-import ThemeDrawer from './modules/theme-drawer.vue'
+import SettingsDrawer from './modules/settings/SettingsDrawer.vue'
 import TabBar from '../components/tab/TabBar.vue'
 import TabPane from '../components/tab/TabPane.vue'
 import TabContextMenu from '../components/tab/TabContextMenu.vue'
@@ -30,7 +30,7 @@ const message = useMessage()
 const themeVars = useThemeVars()
 const { t } = useI18nHelpers()
 
-const showThemeDrawer = ref(false)
+const showSettingsDrawer = ref(false)
 
 // 上下文菜单状态（单例，位置驱动）
 const ctxMenu = reactive({
@@ -177,7 +177,7 @@ async function handleLogout(): Promise<void> {
           <Breadcrumb />
         </div>
         <div class="header-right">
-          <NButton quaternary size="small" @click="showThemeDrawer = true">
+          <NButton quaternary size="small" @click="showSettingsDrawer = true">
             <template #icon>
               <IconifyIcon icon="carbon:settings-adjust" />
             </template>
@@ -222,7 +222,7 @@ async function handleLogout(): Promise<void> {
       </main>
     </div>
 
-    <ThemeDrawer v-model:show="showThemeDrawer" />
+    <SettingsDrawer v-model:show="showSettingsDrawer" />
   </div>
 </template>
 
