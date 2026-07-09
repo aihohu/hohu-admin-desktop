@@ -177,6 +177,35 @@ export interface NotificationApi {
   setEnabled: (enabled: boolean) => Promise<void>
 }
 
+/**
+ * process.platform 的字面量联合（镜像 NodeJS.Platform）。
+ * shared/types 同时被 node 和 web 两个 tsconfig 编译，web 端没有 @types/node，
+ * 直接用 NodeJS.Platform 会报 TS2503；这里自给自足。
+ */
+export type Platform =
+  | 'aix'
+  | 'android'
+  | 'darwin'
+  | 'freebsd'
+  | 'haiku'
+  | 'linux'
+  | 'openbsd'
+  | 'sunos'
+  | 'win32'
+  | 'cygwin'
+  | 'netbsd'
+
+/**
+ * App namespace：暴露 Electron `app` 模块的部分 API。
+ * 命名 ElectronAppApi 避免与已有的 AppApi（window.api 总类型）冲突。
+ */
+export interface ElectronAppApi {
+  getVersion: () => Promise<string>
+  getPlatform: () => Promise<Platform>
+  getLoginItem: () => Promise<boolean>
+  setLoginItem: (enabled: boolean) => Promise<boolean>
+}
+
 export interface AppApi {
   secureStore: SecureStoreApi
   http: HttpApi
@@ -187,4 +216,5 @@ export interface AppApi {
   shortcuts: ShortcutsApi
   updater: UpdaterApi
   notification: NotificationApi
+  app: ElectronAppApi
 }

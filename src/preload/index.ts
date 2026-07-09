@@ -1,5 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { HttpConfig, HttpResponse, NotifyPayload, StoreSchema, UpdaterEvent, UpdaterStatus } from '@shared/types'
+import type {
+  HttpConfig,
+  HttpResponse,
+  NotifyPayload,
+  Platform,
+  StoreSchema,
+  UpdaterEvent,
+  UpdaterStatus
+} from '@shared/types'
 
 /**
  * Secure Store 桥：渲染进程通过 window.api.secureStore 访问主进程的加密存储。
@@ -100,6 +108,19 @@ const notification = {
   setEnabled: (enabled: boolean): Promise<void> => ipcRenderer.invoke('notification:setEnabled', enabled)
 } as const
 
+/**
+ * App namespace 桥：暴露 Electron app 模块的部分 API。
+ * - getVersion: package.json version
+ * - getPlatform: 主进程 process.platform（渲染层 nodeIntegration=false 拿不到）
+ * - getLoginItem / setLoginItem: 开机自启
+ */
+const app = {
+  getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
+  getPlatform: (): Promise<Platform> => ipcRenderer.invoke('app:getPlatform'),
+  getLoginItem: (): Promise<boolean> => ipcRenderer.invoke('app:getLoginItem'),
+  setLoginItem: (enabled: boolean): Promise<boolean> => ipcRenderer.invoke('app:setLoginItem', enabled)
+} as const
+
 const api = {
   secureStore,
   http,
@@ -109,7 +130,8 @@ const api = {
   theme,
   shortcuts,
   updater,
-  notification
+  notification,
+  app
 }
 
 // contextIsolation 始终启用（见 main/index.ts 的 BrowserWindow 配置）
