@@ -1,0 +1,151 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useMessage } from 'naive-ui'
+import { useSettingsStore } from '../../../store/settings'
+import { useI18nHelpers } from '../../../composables/use-i18n'
+import { eventToAccelerator, formatAccelerator } from '@shared/accelerator'
+
+defineOptions({ name: 'SectionShortcuts' })
+
+const settingsStore = useSettingsStore()
+const message = useMessage()
+const { t } = useI18nHelpers()
+
+/** 当前正在录制的 action；null = 非录制态 */
+const recordingAction = ref<string | null>(null)
+/** 录制态临时显示的 acc（用户按下但未确认） */
+const pendingAcc = ref<string>('')
+/** 录制态冲突标记 */
+const conflict = ref(false)
+
+function startRecording(action: string): void {
+  recordingAction.value = action
+  pendingAcc.value = ''
+  conflict.value = false
+}
+
+function cancelRecording(): void {
+  recordingAction.value = null
+  pendingAcc.value = ''
+  conflict.value = false
+}
+
+async function commitRecording(): Promise<void> {
+  if (!recordingAction.value || !pendingAcc.value) {
+    cancelRecording()
+    return
+  }
+  const action = recordingAction.value
+  const acc = pendingAcc.value
+  const ok = await settingsStore.updateShortcut(action, acc)
+  if (ok) {
+    recordingAction.value = null
+    pendingAcc.value = ''
+    conflict.value = false
+  } else {
+    conflict.value = true
+    message.warning(t('settings.shortcuts.conflictMessage'))
+  }
+}
+
+function onKeydown(e: KeyboardEvent): void {
+  if (!recordingAction.value) return
+  // Esc 取消、Enter 确认
+  if (e.code === 'Escape') {
+    e.preventDefault()
+    cancelRecording()
+    return
+  }
+  if (e.code === 'Enter') {
+    e.preventDefault()
+    void commitRecording()
+    return
+  }
+  e.preventDefault()
+  const acc = eventToAccelerator(e)
+  if (acc) {
+    pendingAcc.value = acc
+    conflict.value = false
+  }
+  // acc 为 null（仅 modifier）时保持现状，等用户继续按
+}
+
+function displayAcc(action: string): string {
+  const acc = settingsStore.shortcuts[action]
+  if (!acc) return ''
+  return formatAccelerator(acc, settingsStore.platform)
+}
+</script>
+
+<template>
+  <section class="settings-section">
+    <h4 class="section-title">{{ t('settings.shortcuts.title') }}</h4>
+
+    <div class="shortcut-row">
+      <span class="label">{{ t('settings.shortcuts.toggleWindow') }}</span>
+      <input
+        v-if="recordingAction === 'toggleWindow'"
+        ref="recordingInput"
+        class="acc-input"
+        :class="{ conflict }"
+        :value="pendingAcc ? formatAccelerator(pendingAcc, settingsStore.platform) : ''"
+        :placeholder="conflict ? t('settings.shortcuts.conflict') : t('settings.shortcuts.recording')"
+        readonly
+        @keydown="onKeydown"
+        @blur="cancelRecording"
+      />
+      <button v-else type="button" class="acc-display" @click="startRecording('toggleWindow')">
+        {{ displayAcc('toggleWindow') || '—' }}
+      </button>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.section-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--n-text-color-3, #999);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.label {
+  flex-shrink: 0;
+}
+.acc-input,
+.acc-display {
+  min-width: 120px;
+  padding: 4px 10px;
+  border: 1px solid var(--n-border-color, #ddd);
+  border-radius: 4px;
+  background: var(--n-color, transparent);
+  color: inherit;
+  font-family: monospace;
+  font-size: 13px;
+  text-align: center;
+  cursor: pointer;
+}
+.acc-input:focus {
+  outline: none;
+  border-color: var(--n-primary-color, #18a058);
+}
+.acc-input.conflict {
+  border-color: #f53f3f;
+  color: #f53f3f;
+}
+.acc-display:hover {
+  background: var(--n-color-hover, rgba(0, 0, 0, 0.04));
+}
+</style>
