@@ -182,7 +182,15 @@ Configured in `tsconfig.{node,web}.json` (paths) and `electron.vite.config.ts` (
 21. **`<RouterView>` 已不在 base-layout 内**（Phase 2.5 重构）—— base-layout 内容区由 `<TabPane>` 驱动，`router.afterEach` 同步左栏 tab。新增页面不需要改 base-layout，但要确保 `views/**/index.vue` 命名约定（见 `router/components.ts` 的 `pathToViewKey`）。
 22. **右栏 tab 不进 vue-router** —— 左栏活动 tab 通过 `router.push(tab.fullPath)` 同步 URL，右栏 tab 不影响 URL。这是有意的：避免 `beforeEach` guard 在右栏切换时跑 auth/redirect 逻辑。
 23. **tab 持久化在 localStorage 不在 electron-store** —— tab 状态是纯 renderer UI 偏好（与 darkMode/siderCollapse 同类），主进程不读，IPC 异步往返是浪费。key 是 `${RENDERER_VITE_STORAGE_PREFIX}tabs`。
-24. **macOS 开机自启依赖 sandbox=false**（Phase 2.6 设置抽屉）—— `app.setLoginItemSettings({ openAtLogin: true })` 在 sandbox 启用时会被 macOS 拒绝（需要 entitlements）。当前 `sandbox: false` 开箱可用；将来 Phase 2.7+ 收紧 sandbox 时此项可能失效，需要补充 `com.apple.security.login-item` entitlement 并测试。
+24. **macOS 开机自启 + sandbox 关系**（Phase 2.6 设置抽屉 + Phase 2.7 sandbox 收紧）——
+    - **Electron `sandbox: true`**：跨平台，限制 preload 不能用 Node API（`require` / `fs` / `process` 等）。当前 preload 100% sandbox-clean，flip 无影响。
+    - **macOS App Sandbox**：Apple hardened runtime + entitlements，**只在签名 + 公证的 app 上强制**。Electron 的 `sandbox: true` **不**触发 macOS App Sandbox。
+    - 当前未签名 → `app.setLoginItemSettings({ openAtLogin: true })` 仍正常工作；`safeStorage` 加密 token 也正常。
+    - 将来签名 + 公证时，需要在 entitlements 文件补：
+      - `com.apple.security.keychain`（safeStorage 加密 token）
+      - `com.apple.security.login-item`（开机自启）
+      - `com.apple.security.network.client`（自动更新，默认包含但显式更安全）
+    - Windows / Linux：sandbox 是 Electron 层强制，跨平台一致，无平台特定影响。
 
 ## Git Workflow
 

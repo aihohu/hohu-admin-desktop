@@ -13,6 +13,15 @@ export default defineConfig({
     }
   },
   preload: {
+    build: {
+      rollupOptions: {
+        output: {
+          // sandbox=true 要求 preload 是 CJS（不能用 ESM import）
+          format: 'cjs',
+          entryFileNames: '[name].js'
+        }
+      }
+    },
     resolve: {
       alias: {
         '@shared': resolve('src/shared')
