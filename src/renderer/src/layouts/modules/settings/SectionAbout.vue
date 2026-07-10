@@ -64,28 +64,28 @@ async function handleCheck(): Promise<void> {
   try {
     await settingsStore.checkForUpdates()
   } catch {
-    message.error(t('settings.shortcuts.saveFailed'))
+    message.error(t('settings.common.saveFailed'))
   }
 }
 async function handleSkip(): Promise<void> {
   try {
     await settingsStore.skipCurrentVersion()
   } catch {
-    message.error(t('settings.shortcuts.saveFailed'))
+    message.error(t('settings.common.saveFailed'))
   }
 }
 async function handleInstall(): Promise<void> {
   try {
     await settingsStore.installUpdate()
   } catch {
-    message.error(t('settings.shortcuts.saveFailed'))
+    message.error(t('settings.common.saveFailed'))
   }
 }
 async function handleAutoDownload(v: boolean): Promise<void> {
   try {
     await settingsStore.setUpdaterAutoDownload(v)
   } catch {
-    message.error(t('settings.shortcuts.saveFailed'))
+    message.error(t('settings.common.saveFailed'))
   }
 }
 </script>

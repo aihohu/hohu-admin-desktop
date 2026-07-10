@@ -66,6 +66,10 @@ export default {
   },
   settings: {
     title: '设置',
+    common: {
+      saveFailed: '保存失败',
+      loadFailed: '加载失败'
+    },
     general: {
       title: '通用',
       launchAtLogin: '开机自启',
@@ -86,7 +90,6 @@ export default {
       toggleWindow: '唤起窗口',
       recording: '按下组合键…',
       conflict: '冲突，请重按',
-      saveFailed: '保存失败',
       conflictMessage: '快捷键冲突，请换一个'
     },
     about: {
@@ -98,7 +101,7 @@ export default {
       notAvailable: '已是最新版本',
       skipVersion: '跳过此版本',
       skipped: '已跳过 v{version}',
-      downloadAndRestart: '下载并重启',
+      downloadAndRestart: '重启以应用',
       autoDownload: '自动下载更新',
       errorMessage: '错误：{message}'
     }

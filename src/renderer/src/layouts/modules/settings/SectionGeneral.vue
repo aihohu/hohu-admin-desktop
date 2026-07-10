@@ -18,21 +18,21 @@ async function handleCloseToTray(v: boolean): Promise<void> {
   try {
     await settingsStore.setCloseToTray(v)
   } catch {
-    message.error(t('settings.shortcuts.saveFailed'))
+    message.error(t('settings.common.saveFailed'))
   }
 }
 async function handleLaunchAtLogin(v: boolean): Promise<void> {
   try {
     await settingsStore.setLaunchAtLogin(v)
   } catch {
-    message.error(t('settings.shortcuts.saveFailed'))
+    message.error(t('settings.common.saveFailed'))
   }
 }
 async function handleNotificationsEnabled(v: boolean): Promise<void> {
   try {
     await settingsStore.setNotificationsEnabled(v)
   } catch {
-    message.error(t('settings.shortcuts.saveFailed'))
+    message.error(t('settings.common.saveFailed'))
   }
 }
 function handleLocale(v: Locale): void {

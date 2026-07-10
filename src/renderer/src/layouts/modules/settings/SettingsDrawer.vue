@@ -42,7 +42,7 @@ async function retryLoad(): Promise<void> {
     <NDrawerContent :title="t('settings.title')" closable :native-scrollbar="false">
       <NSpin :show="!settingsStore.loaded && !settingsStore.loadError">
         <div v-if="settingsStore.loadError" class="error-state">
-          <p>{{ t('settings.shortcuts.saveFailed') }}</p>
+          <p>{{ t('settings.common.loadFailed') }}</p>
           <NButton size="small" @click="retryLoad">Retry</NButton>
         </div>
         <NSpace v-else vertical :size="24">

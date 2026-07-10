@@ -70,8 +70,7 @@ export function eventToAccelerator(e: AcceleratorInput): string | null {
 const MAC_SYMBOLS: Record<string, string> = {
   CommandOrControl: '⌘',
   Alt: '⌥',
-  Shift: '⇧',
-  Control: '⌃'
+  Shift: '⇧'
 }
 
 /**

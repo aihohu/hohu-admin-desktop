@@ -66,6 +66,10 @@ export default {
   },
   settings: {
     title: 'Settings',
+    common: {
+      saveFailed: 'Save failed',
+      loadFailed: 'Load failed'
+    },
     general: {
       title: 'General',
       launchAtLogin: 'Launch at login',
@@ -86,7 +90,6 @@ export default {
       toggleWindow: 'Toggle window',
       recording: 'Press combination…',
       conflict: 'Conflict, try again',
-      saveFailed: 'Save failed',
       conflictMessage: 'Shortcut conflict, try another'
     },
     about: {
@@ -98,7 +101,7 @@ export default {
       notAvailable: 'You are on the latest version',
       skipVersion: 'Skip this version',
       skipped: 'Skipped v{version}',
-      downloadAndRestart: 'Download and restart',
+      downloadAndRestart: 'Restart to update',
       autoDownload: 'Auto-download updates',
       errorMessage: 'Error: {message}'
     }

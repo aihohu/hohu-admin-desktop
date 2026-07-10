@@ -1,4 +1,5 @@
 import { app, ipcMain } from 'electron'
+import type { Platform } from '@shared/types'
 
 /**
  * App IPC 通道：暴露 Electron `app` 模块的部分 API 给渲染层。
@@ -16,7 +17,7 @@ export const APP_CHANNELS = {
 export function registerAppIpc(): void {
   ipcMain.handle(APP_CHANNELS.GET_VERSION, (): string => app.getVersion())
 
-  ipcMain.handle(APP_CHANNELS.GET_PLATFORM, (): NodeJS.Platform => process.platform)
+  ipcMain.handle(APP_CHANNELS.GET_PLATFORM, (): Platform => process.platform as Platform)
 
   ipcMain.handle(APP_CHANNELS.GET_LOGIN_ITEM, (): boolean => {
     return app.getLoginItemSettings().openAtLogin
