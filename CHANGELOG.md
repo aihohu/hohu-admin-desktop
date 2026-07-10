@@ -5,12 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.1] - 2026-07-10
 
-### Added
-
-- Initial public release as an open-source Electron + Vue 3 desktop framework.
-- **Dual-pane tabs**: VSCode-style split editor groups with drag-resize sash, right-click context menu (close/close-others/close-left/right/all, pin/unpin, move-to-other-group), persisted to localStorage.
+Initial public release as an open-source Electron + Vue 3 desktop framework.
 
 ### Foundation (Phase 1)
 
@@ -29,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Phase 2.2 — Window / Tray / Shortcuts**: `WindowManager` singleton with window-state persistence; `TrayManager` (right-click menu, close-to-tray); `ShortcutManager` (default `Cmd/Ctrl+Shift+H`, configurable); `shortcuts` IPC for renderer.
 - **Phase 2.3 — Auto-Update**: `UpdaterManager` singleton wrapping `electron-updater` v6; dual provider (GitHub Releases / Generic); 24h background throttle; `skipVersion`; dev mode reads `dev-app-update.yml`; build-time provider switching via `scripts/gen-publish-config.mjs`.
 - **Phase 2.4 — Notification Dispatcher**: `NotificationManager` singleton; every `new Notification()` goes through one place; renderer pushes via `window.api.notification.show()`; GC-safe `activeNotifications: Set<Notification>` retention; global mute; action callback hooks; forward-compatible `source: 'system' | 'renderer' | 'backend'`.
+- **Phase 2.5 — Dual-pane Tabs**: VSCode-style split editor groups with drag-resize sash; right-click context menu (close / close-others / close-left / right / all, pin/unpin, move-to-other-group, open-in-other-group); persisted to localStorage; theme-aware scrollbars; cross-tab KeepAlive.
+- **Phase 2.6 — Settings Drawer**: Unified drawer replacing `ThemeDrawer` with 13 items across 4 sections (general / appearance / shortcuts / about); exposes previously unwired IPC capabilities (auto-update controls, notification toggle, shortcut recording, launch-at-login, close behavior); `app` IPC namespace (`getVersion` / `getPlatform` / `getLoginItem` / `setLoginItem`); `updater.autoDownload` flag; accelerator recording util with TDD tests.
+- **Phase 2.7 — Sandbox Tighten**: Electron `sandbox: true` enabled; preload bundled as CommonJS (sandbox doesn't support ESM); CLAUDE.md pitfall #24 clarifies Electron sandbox vs macOS App Sandbox distinction.
 
 ### Engineering
 
@@ -39,4 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `node:test` + tsx for pure-function unit tests (`src/main/services/__tests__/`).
 - Bilingual docs in `hohu-admin-docs` repo (`docs/guide/desktop/*` × `docs/zh/guide/desktop/*`).
 
-[Unreleased]: https://github.com/aihohu/hohu-admin-desktop/compare/HEAD
+### Known Limitations
+
+- **macOS unsigned**: app can detect updates and download, but `quitAndInstall` is rejected by `validateUpdate` (requires code signing). Windows NSIS / Linux AppImage auto-update works out of box.
+- **macOS first-launch**: user must right-click → Open, or allow in System Settings → Privacy & Security.
+
+[Unreleased]: https://github.com/aihohu/hohu-admin-desktop/compare/v0.0.1...HEAD
+[0.0.1]: https://github.com/aihohu/hohu-admin-desktop/releases/tag/v0.0.1
