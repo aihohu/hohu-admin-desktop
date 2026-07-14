@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.1] - 2026-07-10
+## [0.1.0] - 2026-07-14
 
 Initial public release as an open-source Electron + Vue 3 desktop framework.
 
@@ -44,5 +44,5 @@ Initial public release as an open-source Electron + Vue 3 desktop framework.
 - **macOS unsigned**: app can detect updates and download, but `quitAndInstall` is rejected by `validateUpdate` (requires code signing). Windows NSIS / Linux AppImage auto-update works out of box.
 - **macOS first-launch**: user must right-click → Open, or allow in System Settings → Privacy & Security.
 
-[Unreleased]: https://github.com/aihohu/hohu-admin-desktop/compare/v0.0.1...HEAD
-[0.0.1]: https://github.com/aihohu/hohu-admin-desktop/releases/tag/v0.0.1
+[Unreleased]: https://github.com/aihohu/hohu-admin-desktop/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/aihohu/hohu-admin-desktop/releases/tag/v0.1.0

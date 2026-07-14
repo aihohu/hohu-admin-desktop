@@ -1,6 +1,6 @@
 {
   "name": "hohu-admin-desktop",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Open-source Electron + Vue 3 desktop application framework for the hohu ecosystem",
   "main": "./out/main/index.js",
   "type": "module",
