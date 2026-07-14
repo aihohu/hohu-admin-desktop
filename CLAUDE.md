@@ -139,6 +139,8 @@ RENDERER_VITE_ROUTE_MODE=dynamic
 
 Main process env vars use `MAIN_VITE_` prefix; preload uses `PRELOAD_VITE_`.
 
+**优先级**（高 → 低）：`.env.{mode}.local` > `.env.{mode}` > `.env.local` > `.env`。例如 `pnpm dev` 时 `.env.development` 覆盖 `.env`；`pnpm build` 时 `.env.production` 覆盖 `.env`。`.local` 文件被 gitignore，适合放本地敏感配置（如临时指向本地后端的 baseURL）。改 env 后必须重启 dev（HMR 不覆盖 env）。
+
 ## Path Aliases
 
 | Alias           | Resolves to                       | Used by                 |
