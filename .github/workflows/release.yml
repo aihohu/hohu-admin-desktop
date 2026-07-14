@@ -14,8 +14,6 @@ jobs:
     name: Build (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     env:
-      BUILD_CMD: ${{ matrix.build_cmd }}
-      TARGET: ${{ matrix.target }}
       # electron-builder 直接发布到 GitHub Release（需要 GH_TOKEN）
       # 第一个平台创建 Release，后续平台追加 assets
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -52,4 +50,4 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build & Package
-        run: pnpm $BUILD_CMD
+        run: pnpm ${{ matrix.build_cmd }}
