@@ -15,6 +15,7 @@ interface AuthState {
  * 鉴权 Store：
  * - login: 账密登录 + 拉取用户信息 + 初始化路由
  * - initAuth: 启动时从安全存储恢复会话
+ * - initGuest: AUTH_REQUIRED=false 时跳过登录，注入游客身份
  * - logout: 清理本地凭证（不调 router.push，由调用方负责跳转）
  *
  * ⚠️ store 不直接 import router，避免循环依赖：route store → router → guard → auth store。
@@ -35,6 +36,20 @@ export const useAuthStore = defineStore('auth', {
     hasRole: state => (code: string) => state.roles.includes(code)
   },
   actions: {
+    /**
+     * 游客模式：AUTH_REQUIRED=false 时跳过登录。
+     * 注入 R_ADMIN 角色 + 通配 buttons，让 v-permission / 路由 guard 都正常放行。
+     * 不存 token —— 真实后端 API 调用会 401，但本地功能（tabs/设置/主题）不受影响。
+     */
+    initGuest(): void {
+      this.userId = 'guest'
+      this.userName = 'Guest'
+      this.userAvatar = ''
+      this.roles = ['R_ADMIN']
+      this.buttons = ['*']
+      this.isLogin = true
+    },
+
     async login(userName: string, password: string) {
       const { data, error } = await fetchLogin(userName, password)
       if (error || !data) {
@@ -70,8 +85,13 @@ export const useAuthStore = defineStore('auth', {
     /**
      * 启动时调用：尝试从安全存储恢复 token + 拉取用户信息。
      * 返回 true 表示恢复成功，false 表示需要重新登录。
+     * AUTH_REQUIRED=false 时直接走游客模式，不读 token。
      */
     async initAuth(): Promise<boolean> {
+      if (import.meta.env.RENDERER_VITE_AUTH_REQUIRED === 'false') {
+        this.initGuest()
+        return true
+      }
       const tokens = await loadTokens()
       if (!tokens) return false
       try {

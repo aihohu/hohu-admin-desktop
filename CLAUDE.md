@@ -129,6 +129,8 @@ RENDERER_VITE_STORAGE_PREFIX=hoHu_
 RENDERER_VITE_SERVICE_BASE_URL=http://127.0.0.1:8000
 # 路由模式：dynamic（后端拉菜单，默认）| static（前端写死，适合 fork 做独立应用）
 RENDERER_VITE_ROUTE_MODE=dynamic
+# 是否需要登录：true（默认）| false（游客模式，跳过登录直接进 home，mock Guest 用户 + R_ADMIN 角色）
+RENDERER_VITE_AUTH_REQUIRED=true
 
 # .env.production
 RENDERER_VITE_SERVICE_BASE_URL=https://api.hohu.org
@@ -191,6 +193,7 @@ Configured in `tsconfig.{node,web}.json` (paths) and `electron.vite.config.ts` (
       - `com.apple.security.login-item`（开机自启）
       - `com.apple.security.network.client`（自动更新，默认包含但显式更安全）
     - Windows / Linux：sandbox 是 Electron 层强制，跨平台一致，无平台特定影响。
+25. **`AUTH_REQUIRED=false` 游客模式不 mock 后端**（Phase 2.7）—— `RENDERER_VITE_AUTH_REQUIRED=false` 时跳过登录页、注入 Guest 用户（`R_ADMIN` + `buttons: ['*']`），让路由 guard / `v-permission` 都放行。但**不 mock HTTP 层**：调真实后端 API 仍会发 HTTP 请求，无 token → 401 → 触发 logout → `initGuest()` 重新注入 → 仍可用。适合纯前端功能演示（tabs/设置/主题）；要测带数据的页面需后端跑。
 
 ## Git Workflow
 

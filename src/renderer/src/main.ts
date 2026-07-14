@@ -21,7 +21,10 @@ async function bootstrap(): Promise<void> {
   setupTabPersist()
 
   // ⚠️ 在 app.use(router) 之前预热 token，避免守卫首次导航的 IPC 延迟
-  await loadTokens()
+  // 游客模式（AUTH_REQUIRED=false）下没 token 可读，跳过 IPC
+  if (import.meta.env.RENDERER_VITE_AUTH_REQUIRED !== 'false') {
+    await loadTokens()
+  }
 
   // 把 localStorage 的 darkMode 同步到主进程 nativeTheme，让原生标题栏 / scrollbar 跟随
   useThemeStore().initNativeTheme()
