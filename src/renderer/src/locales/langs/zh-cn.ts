@@ -20,6 +20,8 @@ export default {
       slogan: 'AI 驱动 · 桌面原生',
       fillDemo: '填入演示账号',
       demoTooltip: '演示账号 admin / 123456',
+      tenantCode: '租户代码',
+      tenantCodePlaceholder: '请输入租户代码',
       userName: '用户名',
       password: '密码',
       userNamePlaceholder: '请输入用户名',

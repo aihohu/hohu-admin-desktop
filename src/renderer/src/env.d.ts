@@ -6,6 +6,10 @@ interface ImportMetaEnv {
   readonly RENDERER_VITE_SERVICE_LOGOUT_CODES: string
   readonly RENDERER_VITE_SERVICE_EXPIRED_TOKEN_CODES: string
   readonly RENDERER_VITE_STORAGE_PREFIX: string
+  /** Tenant login mode; defaults to single. */
+  readonly RENDERER_VITE_TENANT_MODE?: 'single' | 'hosted'
+  /** Hosted login locator presentation. */
+  readonly RENDERER_VITE_TENANT_LOCATOR?: 'code' | 'host'
   /** 路由模式：dynamic（默认）| static */
   readonly RENDERER_VITE_ROUTE_MODE?: 'dynamic' | 'static'
   /** 是否需要登录：默认 true；false = 游客模式（跳过登录直接进 home） */

@@ -10,6 +10,7 @@ declare namespace Api {
     interface LoginParams {
       userName: string
       password: string
+      tenantCode?: string
     }
 
     /** 刷新 token 请求 */

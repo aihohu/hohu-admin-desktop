@@ -1,10 +1,15 @@
 import { request, type RequestResult } from '../request'
+import { buildLoginPayload } from '@shared/tenant-auth'
 
-export function fetchLogin(userName: string, password: string): Promise<RequestResult<Api.Auth.LoginToken>> {
+export function fetchLogin(
+  userName: string,
+  password: string,
+  tenantCode?: string
+): Promise<RequestResult<Api.Auth.LoginToken>> {
   return request<Api.Auth.LoginToken>({
     url: '/auth/login',
     method: 'post',
-    data: { userName, password }
+    data: buildLoginPayload(userName, password, tenantCode)
   })
 }
 

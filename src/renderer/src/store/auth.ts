@@ -50,8 +50,8 @@ export const useAuthStore = defineStore('auth', {
       this.isLogin = true
     },
 
-    async login(userName: string, password: string) {
-      const { data, error } = await fetchLogin(userName, password)
+    async login(userName: string, password: string, tenantCode?: string) {
+      const { data, error } = await fetchLogin(userName, password, tenantCode)
       if (error || !data) {
         throw new Error(error?.response?.data?.msg || '登录失败')
       }

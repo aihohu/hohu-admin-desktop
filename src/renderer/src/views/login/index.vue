@@ -7,6 +7,7 @@ import { useAuthStore } from '../../store/auth'
 import { useRouteStore } from '../../store/route'
 import { useThemeStore } from '../../store/theme'
 import logoUrl from '@resources/icon.png'
+import { shouldShowTenantCodeInput } from '@shared/tenant-auth'
 
 defineOptions({ name: 'LoginPage' })
 
@@ -18,10 +19,15 @@ const routeStore = useRouteStore()
 const themeStore = useThemeStore()
 
 const form = ref({
+  tenantCode: '',
   userName: '',
   password: ''
 })
 const loading = ref(false)
+const showTenantCode = shouldShowTenantCodeInput(
+  import.meta.env.RENDERER_VITE_TENANT_MODE,
+  import.meta.env.RENDERER_VITE_TENANT_LOCATOR
+)
 
 // 品牌区背景：主色 + 白/黑混合
 // - 亮色模式：主色 + 30% 白 → 柔化但不失品牌感
@@ -32,18 +38,19 @@ const brandBg = computed(() => {
 })
 
 function fillDemo(): void {
+  if (showTenantCode) form.value.tenantCode = 'default'
   form.value.userName = 'admin'
   form.value.password = '123456'
 }
 
 async function handleSubmit(): Promise<void> {
-  if (!form.value.userName || !form.value.password) {
+  if ((showTenantCode && !form.value.tenantCode) || !form.value.userName || !form.value.password) {
     message.warning(t('page.login.invalidCredentials'))
     return
   }
   loading.value = true
   try {
-    await authStore.login(form.value.userName, form.value.password)
+    await authStore.login(form.value.userName, form.value.password, showTenantCode ? form.value.tenantCode : undefined)
     message.success(`${t('common.welcome')}，${authStore.userName}`)
     router.push({ name: routeStore.home || 'home' })
   } catch (err) {
@@ -71,6 +78,9 @@ async function handleSubmit(): Promise<void> {
         <h2 class="form-title">{{ t('page.login.title') }}</h2>
 
         <n-form @keyup.enter="handleSubmit">
+          <n-form-item v-if="showTenantCode" :label="t('page.login.tenantCode')">
+            <n-input v-model:value="form.tenantCode" :placeholder="t('page.login.tenantCodePlaceholder')" clearable />
+          </n-form-item>
           <n-form-item :label="t('page.login.userName')">
             <n-input v-model:value="form.userName" :placeholder="t('page.login.userNamePlaceholder')" clearable />
           </n-form-item>

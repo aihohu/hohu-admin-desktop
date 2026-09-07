@@ -20,6 +20,8 @@ export default {
       slogan: 'AI-Powered · Native desktop',
       fillDemo: 'Fill demo credentials',
       demoTooltip: 'Demo: admin / 123456',
+      tenantCode: 'Tenant code',
+      tenantCodePlaceholder: 'Enter tenant code',
       userName: 'Username',
       password: 'Password',
       userNamePlaceholder: 'Enter username',
