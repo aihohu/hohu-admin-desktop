@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="license" />
+  <img src="https://img.shields.io/badge/license-Apache--2.0-green.svg" alt="license" />
   <img src="https://img.shields.io/badge/Electron-39-47848F.svg" alt="Electron" />
   <img src="https://img.shields.io/badge/Vue-3.5-42b883.svg" alt="Vue" />
   <img src="https://img.shields.io/badge/Vite-7-646cff.svg" alt="Vite" />
@@ -48,8 +48,8 @@ Designed for AI-first development: typed IPC, explicit contracts between process
 
 ### Foundation (Phase 1)
 
-- **Main-process HTTP forwarder** — All network requests route through Electron's `net` module via typed IPC, **bypassing browser CORS** without disabling security. Standard pattern used by VS Code / Slack / GitHub Desktop.
-- **Secure token storage** — JWT tokens encrypted by the OS keychain (macOS Keychain / Windows DPAPI / Linux libsecret) via Electron `safeStorage`, never written to `localStorage`.
+- **Main-process auth transport** — The renderer can request only relative backend paths through a typed auth IPC; the main process pins the backend origin, controls redirects and injects credentials.
+- **Opaque secure session** — JWT tokens are encrypted by the OS keychain through Electron `safeStorage`; the renderer receives only session state, never raw access or refresh tokens.
 - **Typed IPC bridge** — Shared types in `src/shared/types.ts` flow through all three processes (main / preload / renderer) with zero `any`.
 - **Auth flow** — JWT login, single-flight token refresh, auto-login on app start.
 - **Flat request shape** — `const { data, error } = await fetchLogin(...)` — no try/catch needed.
@@ -94,18 +94,18 @@ Designed for AI-first development: typed IPC, explicit contracts between process
 │ Renderer (browser-like)                                     │
 │   Vue 3 + Pinia + NaiveUI                                   │
 │      │                                                       │
-│      │ window.api.http.request(config)                       │
+│      │ window.api.auth.request(relativeConfig)               │
 │      ▼                                                       │
 ├─────────────────────────────────────────────────────────────┤
 │ Preload (sandboxed bridge)                                  │
 │   contextBridge → exposes strict whitelist API              │
 │      │                                                       │
-│      │ ipcRenderer.invoke('http:request', config)            │
+│      │ ipcRenderer.invoke('auth:request', config)            │
 │      ▼                                                       │
 ├─────────────────────────────────────────────────────────────┤
 │ Main (Node.js runtime — no CORS)                            │
-│   ipcMain.handle → net.request → backend                    │
-│   secureStore → safeStorage → OS keychain                   │
+│   authSession → origin-pinned net.request → backend         │
+│   private token store → safeStorage → OS keychain           │
 │   WindowManager / TrayManager / ShortcutManager /           │
 │   UpdaterManager / NotificationManager                      │
 └─────────────────────────────────────────────────────────────┘
@@ -172,8 +172,8 @@ pnpm format      # Prettier auto-format
 src/
 ├── main/              # Main process (Node.js)
 │   ├── index.ts       # App lifecycle, window, IPC registration
-│   ├── services/      # WindowManager / TrayManager / ShortcutManager /
-│   │                  # UpdaterManager / NotificationManager / http / secure-store
+│   ├── services/      # Auth session / security policy / HTTP transport /
+│   │                  # Window / tray / shortcut / updater / notification
 │   └── ipc/           # ipcMain.handle registrations (typed)
 ├── preload/           # Sandboxed bridge
 │   ├── index.ts       # contextBridge whitelist
@@ -194,15 +194,15 @@ Path aliases: `@renderer/*`, `@shared/*`, `@main/*`, `@resources/*` (configured 
 
 ## Backend Integration
 
-| Item            | Value                                    |
-| --------------- | ---------------------------------------- |
-| API Base (dev)  | `http://127.0.0.1:8000`                  |
-| API Base (prod) | `https://api.hohu.org`                   |
-| Auth            | `Authorization: Bearer <token>`          |
-| Response shape  | `{ code: number, msg: string, data: T }` |
-| Success code    | `200`                                    |
+| Item            | Value                                                |
+| --------------- | ---------------------------------------------------- |
+| API Base (dev)  | `MAIN_VITE_BACKEND_ORIGIN=http://127.0.0.1:8000`     |
+| API Base (prod) | `MAIN_VITE_BACKEND_ORIGIN=https://api.hohu.org`      |
+| Auth            | Main process injects `Authorization: Bearer <token>` |
+| Response shape  | `{ code: number, msg: string, data: T }`             |
+| Success code    | `200`                                                |
 
-Auth endpoints:
+Auth endpoints are called only by the main-process session; token payloads are never returned to renderer code:
 
 - `POST /auth/login` → `{ token, refreshToken }`
 - `POST /auth/refreshToken` → `{ token, refreshToken }`
@@ -298,7 +298,3 @@ Found a vulnerability? See [`SECURITY.md`](./SECURITY.md) for disclosure.
 ## Changelog
 
 See [`CHANGELOG.md`](./CHANGELOG.md).
-
-## License
-
-[MIT](./LICENSE) © HoHu

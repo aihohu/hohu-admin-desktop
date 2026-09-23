@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Licensing
+
+- Adopt Apache-2.0 as the project license starting with v0.1.1, except where otherwise noted; keep the current version number unchanged.
+- Versions through v0.1.0 were previously released under the MIT license; that grant remains effective for copies already distributed (see `NOTICE`).
+- Include `LICENSE` and `NOTICE` with distributions; this entry does not announce a release.
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

@@ -104,4 +104,6 @@ Use the GitHub issue templates (bug report EN/CN, feature request EN/CN). Includ
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the [MIT License](./LICENSE).
+New contributions are licensed under [Apache License 2.0](./LICENSE), except where otherwise noted; contributors retain their copyright. Versions through v0.1.0 were previously released under the MIT license; that grant remains effective for copies already distributed (see [NOTICE](./NOTICE)). Retain applicable third-party copyright and license notices.
+
+Use `git commit -s` to add a DCO `Signed-off-by` line. DCO is not a copyright transfer. Keep the distribution copies in `resources/licenses/` identical to the root `LICENSE` and `NOTICE` files.

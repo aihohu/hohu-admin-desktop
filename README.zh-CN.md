@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="license" />
+  <img src="https://img.shields.io/badge/license-Apache--2.0-green.svg" alt="license" />
   <img src="https://img.shields.io/badge/Electron-39-47848F.svg" alt="Electron" />
   <img src="https://img.shields.io/badge/Vue-3.5-42b883.svg" alt="Vue" />
   <img src="https://img.shields.io/badge/Vite-7-646cff.svg" alt="Vite" />
@@ -48,8 +48,8 @@
 
 ### 框架地基（Phase 1）
 
-- **主进程 HTTP 转发** —— 所有渲染层网络请求通过 Electron `net` 模块经类型化 IPC 发出，**绕过浏览器 CORS** 而不关闭安全。VS Code / Slack / GitHub Desktop 都是这个套路。
-- **安全 token 存储** —— JWT token 由 OS 钥匙串加密（macOS Keychain / Windows DPAPI / Linux libsecret），通过 Electron `safeStorage` 写入，绝不进 `localStorage`。
+- **主进程认证传输** —— renderer 只能通过类型化 auth IPC 请求相对后端路径；main 固定 backend origin、控制 redirect 并注入凭据。
+- **不透明安全会话** —— JWT token 通过 Electron `safeStorage` 由 OS 钥匙串加密；renderer 只获得会话状态，不能读取 access/refresh token 原文。
 - **类型化 IPC 桥** —— 共享类型在 `src/shared/types.ts`，三进程（main / preload / renderer）共享，零 `any`。
 - **登录态流程** —— JWT 登录、单飞 token 刷新、应用启动自动登录。
 - **扁平请求形状** —— `const { data, error } = await fetchLogin(...)`，不用 try/catch。
@@ -94,18 +94,18 @@
 │ Renderer（类浏览器）                                         │
 │   Vue 3 + Pinia + NaiveUI                                   │
 │      │                                                       │
-│      │ window.api.http.request(config)                       │
+│      │ window.api.auth.request(relativeConfig)               │
 │      ▼                                                       │
 ├─────────────────────────────────────────────────────────────┤
 │ Preload（沙盒桥）                                            │
 │   contextBridge → 暴露严格白名单 API                         │
 │      │                                                       │
-│      │ ipcRenderer.invoke('http:request', config)            │
+│      │ ipcRenderer.invoke('auth:request', config)            │
 │      ▼                                                       │
 ├─────────────────────────────────────────────────────────────┤
 │ Main（Node.js 运行时 —— 无 CORS）                            │
-│   ipcMain.handle → net.request → 后端                        │
-│   secureStore → safeStorage → OS 钥匙串                      │
+│   authSession → 固定 origin 的 net.request → 后端            │
+│   私有 token store → safeStorage → OS 钥匙串                 │
 │   WindowManager / TrayManager / ShortcutManager /             │
 │   UpdaterManager / NotificationManager                       │
 └─────────────────────────────────────────────────────────────┘
@@ -235,8 +235,8 @@ export const staticRoutes: Api.Route.UserRoute[] = [
 src/
 ├── main/              # 主进程（Node.js）
 │   ├── index.ts       # App 生命周期、窗口、IPC 注册
-│   ├── services/      # WindowManager / TrayManager / ShortcutManager /
-│   │                  # UpdaterManager / NotificationManager / http / secure-store
+│   ├── services/      # 认证会话 / 安全策略 / HTTP 传输 /
+│   │                  # 窗口 / 托盘 / 快捷键 / 更新 / 通知
 │   └── ipc/           # ipcMain.handle 注册（类型化）
 ├── preload/           # 沙盒桥
 │   ├── index.ts       # contextBridge 白名单
@@ -257,15 +257,15 @@ src/
 
 ## 后端集成
 
-| 项               | 值                                       |
-| ---------------- | ---------------------------------------- |
-| API Base（dev）  | `http://127.0.0.1:8000`                  |
-| API Base（prod） | `https://api.hohu.org`                   |
-| 鉴权             | `Authorization: Bearer <token>`          |
-| 响应形状         | `{ code: number, msg: string, data: T }` |
-| 成功码           | `200`                                    |
+| 项               | 值                                               |
+| ---------------- | ------------------------------------------------ |
+| API Base（dev）  | `MAIN_VITE_BACKEND_ORIGIN=http://127.0.0.1:8000` |
+| API Base（prod） | `MAIN_VITE_BACKEND_ORIGIN=https://api.hohu.org`  |
+| 鉴权             | 主进程注入 `Authorization: Bearer <token>`       |
+| 响应形状         | `{ code: number, msg: string, data: T }`         |
+| 成功码           | `200`                                            |
 
-鉴权接口：
+鉴权接口只由主进程会话调用，token 响应不会返回 renderer：
 
 - `POST /auth/login` → `{ token, refreshToken }`
 - `POST /auth/refreshToken` → `{ token, refreshToken }`
@@ -301,4 +301,4 @@ src/
 
 ## 协议
 
-[MIT](./LICENSE) © HoHu
+自 v0.1.1 起本项目采用 [Apache License 2.0](./LICENSE)，另有声明的代码除外。v0.1.0 及更早版本曾以 MIT 发布，该授权对已分发副本继续有效；第三方代码保留各自许可和版权声明。详见 [NOTICE](./NOTICE)。
