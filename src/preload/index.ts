@@ -1,36 +1,30 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
+  AuthLoginInput,
+  AuthLoginResult,
+  AuthSessionState,
   HttpConfig,
   HttpResponse,
-  NotifyPayload,
   Platform,
-  StoreSchema,
+  RendererNotifyPayload,
   UpdaterEvent,
   UpdaterStatus
 } from '@shared/types'
 
 /**
- * Secure Store 桥：渲染进程通过 window.api.secureStore 访问主进程的加密存储。
- * 永远不要直接暴露 ipcRenderer，只暴露白名单方法。
+ * 主进程会话桥：token 只存在于主进程，renderer 只能登录、登出、查询会话状态，
+ * 或向固定 backend origin 发出受约束的业务请求。
  */
-const secureStore = {
-  get: (key: string): Promise<string | null> => ipcRenderer.invoke('secure-store:get', key),
-  set: (key: string, value: string): Promise<void> => ipcRenderer.invoke('secure-store:set', key, value),
-  delete: (key: string): Promise<void> => ipcRenderer.invoke('secure-store:delete', key),
-  clear: (): Promise<void> => ipcRenderer.invoke('secure-store:clear')
-} as const
-
-/**
- * HTTP 桥：渲染进程所有 HTTP 请求通过主进程转发，绕开浏览器 CORS。
- * 请求最终在主进程用 Electron net 模块发起。
- */
-const http = {
-  request: <T = unknown>(config: HttpConfig): Promise<HttpResponse<T>> => ipcRenderer.invoke('http:request', config)
+const auth = {
+  login: (input: AuthLoginInput): Promise<AuthLoginResult> => ipcRenderer.invoke('auth:login', input),
+  logout: (): Promise<void> => ipcRenderer.invoke('auth:logout'),
+  getSessionState: (): Promise<AuthSessionState> => ipcRenderer.invoke('auth:getSessionState'),
+  request: <T = unknown>(config: HttpConfig): Promise<HttpResponse<T>> => ipcRenderer.invoke('auth:request', config)
 } as const
 
 /**
  * Shell 桥：在系统默认浏览器打开外链。
- * 主进程做协议白名单过滤（仅 http/https/mailto）。
+ * 主进程做协议白名单过滤（仅无凭据 HTTPS）。
  */
 const shell = {
   openExternal: (url: string): Promise<boolean> => ipcRenderer.invoke('shell:openExternal', url)
@@ -45,17 +39,10 @@ const logger = {
   warn: (msg: string, meta?: unknown): Promise<void> => ipcRenderer.invoke('logger:write', 'warn', { msg, meta })
 } as const
 
-/**
- * Store 桥：桌面端非敏感配置（窗口状态、快捷键、托盘行为等）。
- * UI 偏好（darkMode/locale 等）不存这里，留 localStorage 与 web 端共享。
- * 类型契约在这里保证：调用方传字面量 key 时 TS 推断 value 类型。
- */
-const store = {
-  get: <K extends keyof StoreSchema>(key: K): Promise<StoreSchema[K]> =>
-    ipcRenderer.invoke('store:get', key) as Promise<StoreSchema[K]>,
-  set: <K extends keyof StoreSchema>(key: K, value: StoreSchema[K]): Promise<void> =>
-    ipcRenderer.invoke('store:set', key, value) as Promise<void>,
-  delete: (key: keyof StoreSchema): Promise<void> => ipcRenderer.invoke('store:delete', key) as Promise<void>
+/** Tray 桥：只暴露设置页实际需要的关闭行为。 */
+const tray = {
+  getCloseToTray: (): Promise<boolean> => ipcRenderer.invoke('tray:getCloseToTray'),
+  setCloseToTray: (enabled: boolean): Promise<void> => ipcRenderer.invoke('tray:setCloseToTray', enabled)
 } as const
 
 /**
@@ -87,6 +74,7 @@ const updater = {
   check: (forced?: boolean): Promise<UpdaterStatus> => ipcRenderer.invoke('updater:check', forced),
   install: (): Promise<void> => ipcRenderer.invoke('updater:install'),
   skipVersion: (version: string): Promise<void> => ipcRenderer.invoke('updater:skipVersion', version),
+  setAutoDownload: (enabled: boolean): Promise<void> => ipcRenderer.invoke('updater:setAutoDownload', enabled),
   getStatus: (): Promise<UpdaterStatus> => ipcRenderer.invoke('updater:getStatus'),
   onEvent: (cb: (e: UpdaterEvent) => void): Promise<() => void> =>
     new Promise(resolve => {
@@ -107,7 +95,8 @@ const updater = {
  * 受主进程 store.notifications.enabled 全局 mute。
  */
 const notification = {
-  show: (payload: NotifyPayload): Promise<void> => ipcRenderer.invoke('notification:show', payload),
+  show: (payload: RendererNotifyPayload): Promise<void> => ipcRenderer.invoke('notification:show', payload),
+  getEnabled: (): Promise<boolean> => ipcRenderer.invoke('notification:getEnabled'),
   setEnabled: (enabled: boolean): Promise<void> => ipcRenderer.invoke('notification:setEnabled', enabled)
 } as const
 
@@ -125,11 +114,10 @@ const app = {
 } as const
 
 const api = {
-  secureStore,
-  http,
+  auth,
   shell,
   logger,
-  store,
+  tray,
   theme,
   shortcuts,
   updater,

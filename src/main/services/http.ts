@@ -1,6 +1,7 @@
 import { net } from 'electron'
 import qs from 'qs'
 import type { HttpConfig, HttpResponse } from '@shared/types'
+import { MAX_RESPONSE_BODY_BYTES } from './security-policy'
 
 export type { HttpConfig, HttpResponse }
 
@@ -9,14 +10,27 @@ const DEFAULT_TIMEOUT = 60_000
 /**
  * 主进程 HTTP 转发器（基于 Electron net 模块）。
  * 主进程运行在 Node 环境，不受浏览器同源策略限制，可绕开 CORS。
- * 不含业务逻辑（token 注入、刷新等由渲染层处理）。
+ * 不含业务逻辑；仅由主进程会话服务调用。
  */
 export function httpRequest<T = unknown>(config: HttpConfig): Promise<HttpResponse<T>> {
   return new Promise((resolve, reject) => {
     const url = buildUrl(config.url, config.params)
     const method = (config.method || 'get').toUpperCase()
 
-    const request = net.request({ url, method })
+    if (url.length > 8192) {
+      reject(new Error('[http] URL exceeds 8192 characters'))
+      return
+    }
+    const request = net.request({ url, method, redirect: 'error' })
+    let settled = false
+
+    const fail = (error: Error): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      request.abort()
+      reject(error)
+    }
 
     // headers
     if (config.headers) {
@@ -31,8 +45,7 @@ export function httpRequest<T = unknown>(config: HttpConfig): Promise<HttpRespon
 
     // 超时
     const timer = setTimeout(() => {
-      request.abort()
-      reject(new Error(`[http] timeout after ${config.timeout ?? DEFAULT_TIMEOUT}ms: ${method} ${url}`))
+      fail(new Error(`[http] timeout after ${config.timeout ?? DEFAULT_TIMEOUT}ms: ${method} ${url}`))
     }, config.timeout ?? DEFAULT_TIMEOUT)
 
     request.on('response', response => {
@@ -43,8 +56,18 @@ export function httpRequest<T = unknown>(config: HttpConfig): Promise<HttpRespon
       }
 
       const chunks: Buffer[] = []
-      response.on('data', (chunk: Buffer) => chunks.push(chunk))
+      let receivedBytes = 0
+      response.on('data', (chunk: Buffer) => {
+        receivedBytes += chunk.length
+        if (receivedBytes > MAX_RESPONSE_BODY_BYTES) {
+          fail(new Error(`[http] response exceeds ${MAX_RESPONSE_BODY_BYTES} bytes`))
+          return
+        }
+        chunks.push(chunk)
+      })
       response.on('end', () => {
+        if (settled) return
+        settled = true
         clearTimeout(timer)
         const buf = Buffer.concat(chunks)
         try {
@@ -60,14 +83,12 @@ export function httpRequest<T = unknown>(config: HttpConfig): Promise<HttpRespon
         }
       })
       response.on('error', err => {
-        clearTimeout(timer)
-        reject(err)
+        fail(err)
       })
     })
 
     request.on('error', err => {
-      clearTimeout(timer)
-      reject(err)
+      fail(err)
     })
 
     // body

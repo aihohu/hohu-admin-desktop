@@ -40,10 +40,12 @@ See the [Architecture — Security Model](https://hohu.org/guide/desktop/archite
 
 - `contextIsolation: true` (default)
 - `nodeIntegration: false` (default)
-- `sandbox: false` (current — preload can use Node API; planned `true` post-v1)
-- All HTTP routed through main process (bypasses browser CORS, centralizes auth header injection)
-- Tokens encrypted via `safeStorage` (macOS Keychain / Windows DPAPI / Linux libsecret), never in `localStorage`
-- Preload exposes a strict IPC whitelist via `contextBridge`; `ipcRenderer` is never directly exposed
+- `sandbox: true`; preload is bundled as CommonJS and does not use Node APIs
+- Renderer requests use relative paths; the main process pins the backend origin, rejects redirects, and owns authentication endpoints
+- Tokens are encrypted via `safeStorage` and remain private to the main-process session; renderer code receives only session state
+- Every invoke handler verifies the main window, top frame, renderer URL, and runtime argument bounds
+- Preload exposes feature-specific IPC methods through `contextBridge`; generic HTTP, secure storage, and settings-store bridges are not exposed
+- New windows, webviews, and unexpected navigation are blocked; external opening accepts credential-free HTTPS URLs only
 
 ## What's intentionally NOT in scope
 

@@ -1,10 +1,8 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly RENDERER_VITE_SERVICE_BASE_URL: string
   readonly RENDERER_VITE_SERVICE_SUCCESS_CODE: string
   readonly RENDERER_VITE_SERVICE_LOGOUT_CODES: string
-  readonly RENDERER_VITE_SERVICE_EXPIRED_TOKEN_CODES: string
   readonly RENDERER_VITE_STORAGE_PREFIX: string
   /** Tenant login mode; defaults to single. */
   readonly RENDERER_VITE_TENANT_MODE?: 'single' | 'hosted'

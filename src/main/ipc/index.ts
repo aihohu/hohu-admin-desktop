@@ -1,8 +1,7 @@
-import { registerSecureStoreIpc } from './secure-store'
-import { registerHttpIpc } from './http'
+import { registerAuthIpc } from './auth'
 import { registerShellIpc } from './shell'
 import { registerLoggerIpc } from './logger'
-import { registerStoreIpc } from './store'
+import { registerTrayIpc } from './tray'
 import { registerThemeIpc } from './theme'
 import { registerShortcutIpc } from './shortcut'
 import { registerUpdaterIpc } from './updater'
@@ -14,11 +13,10 @@ import { registerAppIpc } from './app'
  * 必须在 app.whenReady() 之后调用。
  */
 export function registerAllIpc(): void {
-  registerSecureStoreIpc()
-  registerHttpIpc()
+  registerAuthIpc()
   registerShellIpc()
   registerLoggerIpc()
-  registerStoreIpc()
+  registerTrayIpc()
   registerThemeIpc()
   registerShortcutIpc()
   registerUpdaterIpc()

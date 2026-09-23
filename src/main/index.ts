@@ -1,5 +1,6 @@
 import { app, shell } from 'electron'
 import { join } from 'path'
+import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '@resources/icon.png?asset'
 import { initSecureStore } from './services/secure-store'
@@ -8,6 +9,8 @@ import { trayManager } from './services/tray'
 import { shortcutManager } from './services/shortcut'
 import { updaterManager } from './services/updater'
 import { registerAllIpc } from './ipc'
+import { isTrustedRendererUrl, setTrustedRendererUrl } from './ipc/security'
+import { normalizeExternalUrl } from './services/security-policy'
 
 // 单例锁：第二次启动直接 focus 已有窗口
 const gotLock = app.requestSingleInstanceLock()
@@ -39,48 +42,73 @@ if (!gotLock) {
       optimizer.watchWindowShortcuts(window)
     })
 
-    const win = windowManager.createMainWindow({
-      ...(process.platform === 'linux' ? { icon } : {}),
-      webPreferences: {
-        preload: join(__dirname, '../preload/index.js'),
-        sandbox: true
+    const createMainWindow = (): void => {
+      const win = windowManager.createMainWindow({
+        ...(process.platform === 'linux' ? { icon } : {}),
+        webPreferences: {
+          preload: join(__dirname, '../preload/index.js'),
+          sandbox: true,
+          contextIsolation: true,
+          nodeIntegration: false,
+          webviewTag: false
+        }
+      })
+
+      const rendererTarget =
+        is.dev && process.env['ELECTRON_RENDERER_URL']
+          ? process.env['ELECTRON_RENDERER_URL']
+          : pathToFileURL(join(__dirname, '../renderer/index.html')).toString()
+      setTrustedRendererUrl(rendererTarget, is.dev)
+
+      win.on('ready-to-show', () => {
+        win.show()
+      })
+
+      win.webContents.setWindowOpenHandler(details => {
+        try {
+          void shell.openExternal(normalizeExternalUrl(details.url)).catch(() => undefined)
+        } catch {
+          // 非 HTTPS 或格式非法的目标保持阻断。
+        }
+        return { action: 'deny' }
+      })
+      win.webContents.on('will-navigate', (event, navigationUrl) => {
+        if (isTrustedRendererUrl(navigationUrl)) return
+        event.preventDefault()
+        try {
+          void shell.openExternal(normalizeExternalUrl(navigationUrl)).catch(() => undefined)
+        } catch {
+          // 非 HTTPS 或格式非法的目标保持阻断。
+        }
+      })
+      win.webContents.on('will-attach-webview', event => event.preventDefault())
+
+      if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+        void win.loadURL(rendererTarget)
+      } else {
+        void win.loadFile(join(__dirname, '../renderer/index.html'))
       }
-    })
 
-    win.on('ready-to-show', () => {
-      win.show()
-    })
+      // close-to-tray：根据 store.tray.closeToTray 决定（isQuitting=true 时强制放行）
+      win.on('close', event => {
+        if (!isQuitting && trayManager.shouldCloseToTray()) {
+          event.preventDefault()
+          windowManager.hide()
+        }
+      })
 
-    // 外链点击交给系统浏览器，不在 Electron 内打开
-    win.webContents.setWindowOpenHandler(details => {
-      void shell.openExternal(details.url)
-      return { action: 'deny' }
-    })
-
-    if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-      win.loadURL(process.env['ELECTRON_RENDERER_URL'])
-    } else {
-      win.loadFile(join(__dirname, '../renderer/index.html'))
+      win.on('show', () => trayManager.refreshMenu())
+      win.on('hide', () => trayManager.refreshMenu())
+      win.on('minimize', () => trayManager.refreshMenu())
+      win.on('restore', () => trayManager.refreshMenu())
     }
 
-    // close-to-tray：根据 store.tray.closeToTray 决定（isQuitting=true 时强制放行）
-    win.on('close', event => {
-      if (!isQuitting && trayManager.shouldCloseToTray()) {
-        event.preventDefault()
-        windowManager.hide()
-      }
-    })
+    createMainWindow()
 
     // 托盘初始化
     trayManager.init()
     shortcutManager.init()
     updaterManager.init()
-
-    // 窗口可见性变化时刷新托盘菜单（Show ↔ Hide 标签）
-    win.on('show', () => trayManager.refreshMenu())
-    win.on('hide', () => trayManager.refreshMenu())
-    win.on('minimize', () => trayManager.refreshMenu())
-    win.on('restore', () => trayManager.refreshMenu())
 
     app.on('activate', () => {
       // macOS dock 点击：窗口存在就 show，不存在才 create
@@ -88,7 +116,7 @@ if (!gotLock) {
       if (existing) {
         existing.show()
       } else {
-        windowManager.createMainWindow()
+        createMainWindow()
       }
     })
   })

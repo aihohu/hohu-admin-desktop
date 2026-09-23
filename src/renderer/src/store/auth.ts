@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import { fetchLogin, fetchGetUserInfo } from '../service/api/auth'
-import { setTokens, clearTokens, loadTokens } from '../service/token'
+import { fetchGetUserInfo } from '../service/api/auth'
+import { buildLoginPayload } from '@shared/tenant-auth'
 
 interface AuthState {
   userId: string
@@ -51,11 +51,10 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async login(userName: string, password: string, tenantCode?: string) {
-      const { data, error } = await fetchLogin(userName, password, tenantCode)
-      if (error || !data) {
-        throw new Error(error?.response?.data?.msg || '登录失败')
+      const result = await window.api.auth.login(buildLoginPayload(userName, password, tenantCode))
+      if (!result.success) {
+        throw new Error(result.message || '登录失败')
       }
-      await setTokens(data)
       await this.getUserInfo()
 
       // 登录成功后初始化动态路由
@@ -92,8 +91,8 @@ export const useAuthStore = defineStore('auth', {
         this.initGuest()
         return true
       }
-      const tokens = await loadTokens()
-      if (!tokens) return false
+      const session = await window.api.auth.getSessionState()
+      if (!session.authenticated) return false
       try {
         await this.getUserInfo()
         return true
@@ -104,7 +103,7 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async logout() {
-      await clearTokens()
+      await window.api.auth.logout()
 
       // 清理动态路由（延迟 import 避免循环依赖）
       const { useRouteStore } = await import('./route')

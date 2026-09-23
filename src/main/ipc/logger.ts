@@ -1,5 +1,6 @@
-import { ipcMain } from 'electron'
 import log from '@main/services/logger'
+import { normalizeRendererLogEntry } from '../services/security-policy'
+import { trustedHandle } from './security'
 
 const rendererLogger = log.scope('renderer')
 
@@ -13,12 +14,12 @@ export const LOGGER_CHANNELS = {
 } as const
 
 export function registerLoggerIpc(): void {
-  ipcMain.handle(LOGGER_CHANNELS.WRITE, (_e, level: 'error' | 'warn', payload: { msg: string; meta?: unknown }) => {
-    const { msg, meta } = payload
-    if (level === 'error') {
-      rendererLogger.error(msg, meta ?? '')
+  trustedHandle(LOGGER_CHANNELS.WRITE, (_e, level: unknown, payload: unknown) => {
+    const entry = normalizeRendererLogEntry(level, payload)
+    if (entry.level === 'error') {
+      rendererLogger.error(entry.msg, entry.meta ?? '')
     } else {
-      rendererLogger.warn(msg, meta ?? '')
+      rendererLogger.warn(entry.msg, entry.meta ?? '')
     }
   })
 }

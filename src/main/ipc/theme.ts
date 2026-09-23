@@ -1,4 +1,6 @@
-import { ipcMain, nativeTheme } from 'electron'
+import { nativeTheme } from 'electron'
+import { requireEnum } from '../services/security-policy'
+import { trustedHandle } from './security'
 
 /**
  * Theme IPC 通道。
@@ -15,7 +17,7 @@ export const THEME_CHANNELS = {
 export type NativeThemeSource = 'system' | 'dark' | 'light'
 
 export function registerThemeIpc(): void {
-  ipcMain.handle(THEME_CHANNELS.SET_NATIVE_SOURCE, (_e, source: NativeThemeSource) => {
-    nativeTheme.themeSource = source
+  trustedHandle(THEME_CHANNELS.SET_NATIVE_SOURCE, (_e, source: unknown) => {
+    nativeTheme.themeSource = requireEnum(source, ['system', 'dark', 'light'] as const, 'native theme source')
   })
 }

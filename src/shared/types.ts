@@ -17,14 +17,25 @@ export interface HttpResponse<T = unknown> {
   data: T
 }
 
-export interface SecureStoreApi {
-  get: (key: string) => Promise<string | null>
-  set: (key: string, value: string) => Promise<void>
-  delete: (key: string) => Promise<void>
-  clear: () => Promise<void>
+export interface AuthLoginInput {
+  userName: string
+  password: string
+  tenantCode?: string
 }
 
-export interface HttpApi {
+export interface AuthLoginResult {
+  success: boolean
+  message: string
+}
+
+export interface AuthSessionState {
+  authenticated: boolean
+}
+
+export interface AuthApi {
+  login: (input: AuthLoginInput) => Promise<AuthLoginResult>
+  logout: () => Promise<void>
+  getSessionState: () => Promise<AuthSessionState>
   request: <T = unknown>(config: HttpConfig) => Promise<HttpResponse<T>>
 }
 
@@ -78,12 +89,6 @@ export interface LoggerApi {
   warn: (msg: string, meta?: unknown) => Promise<void>
 }
 
-export interface StoreApi {
-  get: <K extends keyof StoreSchema>(key: K) => Promise<StoreSchema[K]>
-  set: <K extends keyof StoreSchema>(key: K, value: StoreSchema[K]) => Promise<void>
-  delete: (key: keyof StoreSchema) => Promise<void>
-}
-
 /**
  * Theme 桥：同步渲染层主题到主进程的 nativeTheme。
  * 影响 OS 层 UI（标题栏、原生 scrollbar、原生右键菜单）。
@@ -125,6 +130,7 @@ export interface UpdaterStatus {
   progress: number | null
   lastCheck: number | null
   skipVersion: string | null
+  autoDownload: boolean
   /** Phase 2.6：error 状态下的错误消息；其他状态为 null */
   message: string | null
 }
@@ -145,6 +151,8 @@ export interface UpdaterApi {
   install: () => Promise<void>
   /** 标记跳过某版本 */
   skipVersion: (version: string) => Promise<void>
+  /** 控制发现新版本后是否自动下载 */
+  setAutoDownload: (enabled: boolean) => Promise<void>
   /** 拿当前状态（渲染层首屏初始化用） */
   getStatus: () => Promise<UpdaterStatus>
   /** 订阅事件流；返回取消订阅函数 */
@@ -172,11 +180,25 @@ export interface NotifyPayload {
   actionId?: string
 }
 
+/** Renderer 只能提交展示内容；来源和点击动作由主进程决定。 */
+export interface RendererNotifyPayload {
+  category?: NotificationCategory
+  title: string
+  body: string
+}
+
 export interface NotificationApi {
   /** 推系统通知（受 notifications.enabled 全局 mute） */
-  show: (payload: NotifyPayload) => Promise<void>
+  show: (payload: RendererNotifyPayload) => Promise<void>
+  /** 获取全局通知开关 */
+  getEnabled: () => Promise<boolean>
   /** 改 store.notifications.enabled（设置页用，今天无 UI） */
   setEnabled: (enabled: boolean) => Promise<void>
+}
+
+export interface TrayApi {
+  getCloseToTray: () => Promise<boolean>
+  setCloseToTray: (enabled: boolean) => Promise<void>
 }
 
 /**
@@ -209,11 +231,10 @@ export interface ElectronAppApi {
 }
 
 export interface AppApi {
-  secureStore: SecureStoreApi
-  http: HttpApi
+  auth: AuthApi
   shell: ShellApi
   logger: LoggerApi
-  store: StoreApi
+  tray: TrayApi
   theme: ThemeApi
   shortcuts: ShortcutsApi
   updater: UpdaterApi

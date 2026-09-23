@@ -11,10 +11,6 @@ import type {
   RequestResultSuccess
 } from './type'
 
-export interface CreateRequestConfig {
-  baseURL?: string
-}
-
 /**
  * Flat request factory：调用方总是拿到 { data, error, response }，无需 try/catch。
  *
@@ -23,9 +19,7 @@ export interface CreateRequestConfig {
  *
  * 业务侧接口（auth store、API 调用）零改动。
  */
-export function createFlatRequest(config: CreateRequestConfig, options: RequestOption): RequestInstance {
-  const baseURL = config.baseURL || ''
-
+export function createFlatRequest(options: RequestOption): RequestInstance {
   const doRequest = async <T>(
     reqConfig: RequestConfig,
     depth: number
@@ -38,9 +32,9 @@ export function createFlatRequest(config: CreateRequestConfig, options: RequestO
 
     try {
       const processed = await options.onRequest(reqConfig)
-      const sendable = toSendable(processed, baseURL)
+      const sendable = toSendable(processed)
 
-      const response = await window.api.http.request<BackendResponse<T>>(sendable)
+      const response = await window.api.auth.request<BackendResponse<T>>(sendable)
 
       if (options.isBackendSuccess(response as HttpResponse<BackendResponse>)) {
         const data = options.transform(response as HttpResponse<BackendResponse>) as T
@@ -90,12 +84,12 @@ export function createFlatRequest(config: CreateRequestConfig, options: RequestO
   return request
 }
 
-function toSendable(config: RequestConfig, baseURL: string): HttpConfig {
+function toSendable(config: RequestConfig): HttpConfig {
   const headers: Record<string, string> = { ...(config.headers || {}) }
   if (!headers['X-Request-Id']) headers['X-Request-Id'] = nanoid()
 
   return {
-    url: baseURL + (config.url || ''),
+    url: config.url || '',
     method: (config.method || 'get').toLowerCase(),
     data: config.data,
     params: config.params,

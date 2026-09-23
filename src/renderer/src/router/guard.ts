@@ -1,7 +1,6 @@
 import type { Router } from 'vue-router'
 import { useAuthStore } from '../store/auth'
 import { useRouteStore } from '../store/route'
-import { getTokens } from '../service/token'
 
 /**
  * 路由守卫：token 检查 + 动态路由初始化 + 首页重定向 + static 模式角色过滤。
@@ -39,10 +38,10 @@ export function setupRouteGuard(router: Router): void {
       return true
     }
 
-    const tokens = await getTokens()
+    const session = authStore.isLogin ? { authenticated: true } : await window.api.auth.getSessionState()
 
-    // 1. 无 token
-    if (!tokens) {
+    // 1. 主进程没有活动会话
+    if (!session.authenticated) {
       if (to.meta.constant) return true
       return { path: '/login', query: { redirect: to.fullPath } }
     }

@@ -1,6 +1,7 @@
-import { ipcMain } from 'electron'
-import type { NotifyPayload } from '@shared/types'
+import type { RendererNotifyPayload } from '@shared/types'
 import { notificationManager } from '../services/notification'
+import { normalizeRendererNotification, requireBoolean } from '../services/security-policy'
+import { trustedHandle } from './security'
 
 /**
  * Notification IPC：
@@ -8,11 +9,13 @@ import { notificationManager } from '../services/notification'
  * - setEnabled：改全局 mute 开关
  */
 export function registerNotificationIpc(): void {
-  ipcMain.handle('notification:show', async (_e, payload: NotifyPayload) => {
-    notificationManager.show(payload)
+  trustedHandle('notification:show', async (_e, payload: RendererNotifyPayload) => {
+    notificationManager.show(normalizeRendererNotification(payload))
   })
 
-  ipcMain.handle('notification:setEnabled', async (_e, enabled: boolean) => {
-    notificationManager.setEnabled(enabled)
+  trustedHandle('notification:getEnabled', async () => notificationManager.isEnabled())
+
+  trustedHandle('notification:setEnabled', async (_e, enabled: unknown) => {
+    notificationManager.setEnabled(requireBoolean(enabled, 'notification setting'))
   })
 }

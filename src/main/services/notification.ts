@@ -61,6 +61,10 @@ class NotificationManagerClass {
     logger.info(`notifications ${enabled ? 'enabled' : 'disabled'}`)
   }
 
+  isEnabled(): boolean {
+    return store.get('notifications').enabled
+  }
+
   /**
    * 注册点击 action handler（业务模块启动时调一次）。
    * 返回反注册函数。

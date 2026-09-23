@@ -170,14 +170,15 @@ docs/                              # 框架文档
 ```
 src/shared/types.ts                       # HttpConfig / HttpResponse / AppApi（共享类型）
 src/main/services/http.ts                 # 主进程 HTTP 转发器（Electron net）
-src/main/ipc/http.ts                      # ipcMain.handle('http:request')
-src/preload/index.ts                      # contextBridge 暴露 window.api.http.request
+src/main/services/auth-session.ts         # token 生命周期、刷新、认证头注入
+src/main/services/security-policy.ts      # origin / 路径 / header / IPC 参数边界
+src/main/ipc/auth.ts                      # auth:login / logout / request
+src/preload/index.ts                      # contextBridge 暴露窄 auth API
 src/renderer/src/service/request/
 ├── type.ts                               # RequestConfig / RequestResult / RequestOption
 ├── factory.ts                            # createFlatRequest 工厂
-└── index.ts                              # 默认 request 实例（业务码 + 刷新逻辑）
-src/renderer/src/service/token.ts         # token 内存缓存 + secureStore 桥
-src/renderer/src/service/api/auth.ts      # /auth/login, /auth/refreshToken, /auth/getUserInfo
+└── index.ts                              # 默认 request 实例（业务码 + 最终登出态）
+src/renderer/src/service/api/auth.ts      # /auth/getUserInfo
 src/renderer/src/store/auth.ts            # Pinia auth store
 ```
 
@@ -186,20 +187,22 @@ src/renderer/src/store/auth.ts            # Pinia auth store
 业务侧永远拿到 `{ data, error, response }`，无需 try/catch：
 
 ```ts
-const { data, error } = await fetchLogin(userName, password)
+const { data, error } = await fetchGetUserInfo()
 if (error) {
   // error.response?.data?.msg 拿后端消息
   return
 }
-// data 是 Api.Auth.LoginToken
+// data 是 Api.Auth.UserInfo
 ```
 
 #### 主进程 HTTP 服务（`src/main/services/http.ts`）
 
 - 基于 Electron `net.request`（Node 环境，绕开 CORS）
-- 责任单一：只做 HTTP 转发，不做业务逻辑（token、刷新等都在渲染层）
+- 仅由主进程 `AuthSession` 调用，不直接暴露给 renderer
+- backend origin 构建时固定；renderer 只能提交相对路径，不能覆盖认证头
+- redirect fail-closed，请求/响应体和 timeout 有明确上限
 - 支持 `json` / `text` / `blob` / `arraybuffer` 响应类型
-- 默认 60s 超时，可通过 config 覆盖
+- 默认 60s 超时，可向下覆盖
 - `params` 用 `qs` 序列化，自动过滤 `null` / `undefined` / `''`
 
 #### IPC 桥（typed）
@@ -207,10 +210,10 @@ if (error) {
 ```
 渲染层                         Preload                        主进程
 ─────────────────────────────────────────────────────────────────────
-window.api.http.request  ──▶  ipcRenderer.invoke       ──▶  ipcMain.handle('http:request')
-   (HttpConfig)               ('http:request', config)       ↓
-                              ◀── HttpResponse ──           httpRequest(config)
-                                                            ↓
+window.api.auth.request ──▶  ipcRenderer.invoke       ──▶  trustedHandle('auth:request')
+   (relative HttpConfig)      ('auth:request', config)       ↓
+                              ◀── HttpResponse ──           AuthSession
+                                                            ↓ origin + token policy
                                                             net.request
 ```
 
@@ -220,13 +223,13 @@ window.api.http.request  ──▶  ipcRenderer.invoke       ──▶  ipcMain.
 
 `createFlatRequest(config, options)` 工厂，options 提供 4 个钩子：
 
-| 钩子                                             | 职责                                       |
-| ------------------------------------------------ | ------------------------------------------ |
-| `onRequest(config)`                              | 注入 token、清理 params、加 `X-Request-Id` |
-| `isBackendSuccess(response)`                     | 判断业务码是否成功                         |
-| `onBackendFail(response, retry, originalConfig)` | 业务失败处理：token 过期刷新 + 重试        |
-| `onError(error)`                                 | 网络/HTTP 错误回调（接全局 message 弹窗）  |
-| `transform(response)`                            | 从 `{code, msg, data}` 提取 `data`         |
+| 钩子                                             | 职责                                      |
+| ------------------------------------------------ | ----------------------------------------- |
+| `onRequest(config)`                              | 清理 params、加 `X-Request-Id`            |
+| `isBackendSuccess(response)`                     | 判断业务码是否成功                        |
+| `onBackendFail(response, retry, originalConfig)` | 业务失败处理：token 过期刷新 + 重试       |
+| `onError(error)`                                 | 网络/HTTP 错误回调（接全局 message 弹窗） |
+| `transform(response)`                            | 从 `{code, msg, data}` 提取 `data`        |
 
 **重试机制**：`onBackendFail` 拿到 `retry(config)` 函数可重发请求，factory 内部用 `depth` 限制最多重试 2 次，防止死循环。
 
@@ -234,27 +237,27 @@ window.api.http.request  ──▶  ipcRenderer.invoke       ──▶  ipcMain.
 
 业务码从 `.env` 读取，**全部用 `String()` 转字符串比较**（后端 `ResponseModel.code: int = 200` 返回数字）：
 
-| 码                   | 含义       | 行为                            |
-| -------------------- | ---------- | ------------------------------- |
-| `200`                | 成功       | 提取 data 返回                  |
-| `401`                | 登出       | 清 token，渲染层跳登录          |
-| `9999 / 9998 / 3333` | token 过期 | 单飞刷新 → 重试一次；失败则登出 |
+| 码                   | 含义       | 行为                                  |
+| -------------------- | ---------- | ------------------------------------- |
+| `200`                | 成功       | 提取 data 返回                        |
+| `401`                | 登出       | 清 token，渲染层跳登录                |
+| `9999 / 9998 / 3333` | token 过期 | 主进程单飞刷新 → 重试一次；失败则登出 |
 
-**单飞刷新**：`state.refreshTokenPromise` 是单例 Promise，并发请求同时遇到过期码时只触发一次 `/auth/refreshToken` 调用，其他请求 await 同一个 Promise。1s 后清空，允许下次再刷新。
+**单飞刷新**：`AuthSession` 按会话 revision 复用 refresh Promise；显式退出或重新登录会使旧 revision 失效，已在途的刷新不能恢复已注销会话。
 
 #### Token 存储分层
 
-| 层     | 位置                                                | 说明                                                              |
-| ------ | --------------------------------------------------- | ----------------------------------------------------------------- |
-| 持久层 | 主进程 `safeStorage` → `userData/secure-store.json` | OS 密钥链加密（macOS Keychain / Windows DPAPI / Linux libsecret） |
-| 访问层 | `window.api.secureStore.get/set/delete/clear`       | 异步 IPC，渲染层无文件访问权                                      |
-| 缓存层 | 渲染进程内存（`service/token.ts` 的 `cached`）      | 启动时一次性加载，后续请求零 IPC 开销                             |
+| 层       | 位置                                                | 说明                                                              |
+| -------- | --------------------------------------------------- | ----------------------------------------------------------------- |
+| 持久层   | 主进程 `safeStorage` → `userData/secure-store.json` | OS 密钥链加密（macOS Keychain / Windows DPAPI / Linux libsecret） |
+| 会话层   | 主进程 `AuthSession`                                | 登录、刷新、注入认证头、远端注销                                  |
+| Renderer | `window.api.auth`                                   | 仅登录、登出、会话布尔状态和受约束业务请求                        |
 
 对比 web 用 localStorage：
 
-- ✅ XSS 拿不到明文 token（只能通过 IPC 调 `secureStore.get`，可观察/限速）
+- ✅ XSS 无法通过 IPC 读取明文 token
 - ✅ 加密落盘，文件被偷也解不开
-- ❌ 比 localStorage 慢（IPC 开销）→ 用内存缓存抵消
+- ✅ 登录/刷新端点仅主进程可用，通用业务请求不能绕回 token 接口
 
 ---
 
@@ -270,16 +273,20 @@ src/shared/types.ts      ← 共享类型，三进程 import
 
 #### 已实现的 IPC
 
-| Channel                             | 方向            | 用途         |
-| ----------------------------------- | --------------- | ------------ |
-| `secure-store:get/set/delete/clear` | renderer → main | 安全存储读写 |
-| `http:request`                      | renderer → main | HTTP 转发    |
+| Channel                          | 方向            | 用途                       |
+| -------------------------------- | --------------- | -------------------------- |
+| `auth:login/logout/request`      | renderer → main | 不透明认证会话与受约束请求 |
+| `tray:*` / `shortcuts:*`         | renderer → main | 明确的桌面设置能力         |
+| `updater:*` / `notification:*`   | renderer → main | 更新与通知能力             |
+| `app:*` / `theme:*` / `logger:*` | renderer → main | 有界的系统集成能力         |
+
+所有 invoke handler 都通过 `trustedHandle` 注册，校验主窗口、top frame 和 renderer URL；带参数的能力还必须做运行时类型、枚举和长度校验。不存在通用 HTTP、secure-store 或 electron-store IPC。
 
 #### 添加新 IPC 的步骤
 
 1. 在 `src/shared/types.ts` 加类型
 2. 在 `src/main/services/<name>.ts` 写业务逻辑
-3. 在 `src/main/ipc/<name>.ts` 注册 `ipcMain.handle`
+3. 在 `src/main/ipc/<name>.ts` 用 `trustedHandle` 注册 handler，并校验所有运行时参数
 4. 在 `src/main/ipc/index.ts` 调用 `register<Name>Ipc()`
 5. 在 `src/preload/index.ts` 通过 `contextBridge` 暴露白名单方法
 
@@ -292,14 +299,15 @@ src/shared/types.ts      ← 共享类型，三进程 import
 new BrowserWindow({
   webPreferences: {
     preload: join(__dirname, '../preload/index.js'),
-    sandbox: false, // 当前为 false；后续 Phase 2 计划切到 true（需验证 @electron-toolkit/preload 兼容性）
+    sandbox: true,
     contextIsolation: true, // 渲染进程与 preload 隔离（contextBridge 强制）
-    nodeIntegration: false // 渲染进程无 require
+    nodeIntegration: false, // 渲染进程无 require
+    webviewTag: false
   }
 })
 ```
 
-> `contextIsolation: true` + `nodeIntegration: false` 已是 Electron 安全默认值，不可关闭。`sandbox: true` 是更严格的安全模式，但会让 preload 脚本无法使用 Node API，需要在 Phase 2 验证依赖兼容性后再开启。
+> preload 以 CommonJS 输出且只使用 Electron sandbox 提供的 API。`contextIsolation`、`nodeIntegration`、`sandbox` 和 `webviewTag` 是安全不变量，不得为兼容业务页面而放宽。
 
 ### 6.3 布局 + 主题 + i18n（已实现）
 

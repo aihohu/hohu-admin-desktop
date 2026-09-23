@@ -1,4 +1,5 @@
 import { app, Tray, Menu, nativeImage, type MenuItemConstructorOptions } from 'electron'
+import { is } from '@electron-toolkit/utils'
 import { windowManager } from './window'
 import { store } from './store'
 import log from './logger'
@@ -40,12 +41,17 @@ class TrayManagerClass {
     if (!this.tray) return
     const win = windowManager.getMainWindow()
     const isVisible = !!win && win.isVisible() && !win.isMinimized()
+    const developerItems: MenuItemConstructorOptions[] = is.dev
+      ? [
+          { type: 'separator' },
+          { label: 'Reload', click: () => win?.reload() },
+          { label: 'DevTools', click: () => win?.webContents.toggleDevTools() }
+        ]
+      : []
 
     const template: MenuItemConstructorOptions[] = [
       { label: isVisible ? 'Hide' : 'Show', click: () => windowManager.toggle() },
-      { type: 'separator' },
-      { label: 'Reload', click: () => win?.reload() },
-      { label: 'DevTools', click: () => win?.webContents.toggleDevTools() },
+      ...developerItems,
       { type: 'separator' },
       {
         label: 'Check for Updates...',
@@ -61,6 +67,10 @@ class TrayManagerClass {
   /** 由 main/index.ts 调用：判断是否应该 close-to-tray（读 store.tray.closeToTray） */
   shouldCloseToTray(): boolean {
     return store.get('tray').closeToTray
+  }
+
+  setCloseToTray(enabled: boolean): void {
+    store.set('tray', { closeToTray: enabled })
   }
 
   destroy(): void {

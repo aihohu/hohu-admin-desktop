@@ -6,18 +6,16 @@ type BackendResponse<T = unknown> = Response<T>
 /** 业务请求配置（渲染层语义；最终通过 IPC 送到主进程） */
 export interface RequestConfig {
   url: string
-  method?: 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'options'
+  method?: 'get' | 'post' | 'put' | 'delete' | 'patch'
   data?: unknown
   params?: Record<string, unknown>
   headers?: Record<string, string>
   responseType?: HttpConfig['responseType']
   timeout?: number
-  /** 标记为"刷新 token"请求，避免在 onBackendFail 中被再次拦截造成死循环 */
-  isRefreshToken?: boolean
 }
 
-/** 实际发送给主进程的配置（剥离 isRefreshToken 等业务字段） */
-export type SendableConfig = Omit<RequestConfig, 'isRefreshToken'>
+/** 实际发送给主进程的配置。 */
+export type SendableConfig = RequestConfig
 
 /** 请求成功结果（flat 模式） */
 export interface RequestResultSuccess<T> {
@@ -43,11 +41,6 @@ export interface RequestError extends Error {
 }
 
 export type RequestInstance = <T = unknown>(config: RequestConfig) => Promise<RequestResult<T>>
-
-export interface RequestInstanceState {
-  /** 正在进行的刷新 token Promise（单例，防并发） */
-  refreshTokenPromise: Promise<boolean> | null
-}
 
 export interface RequestOption {
   /** onRequest 钩子：注入 token、清理 params */

@@ -27,6 +27,7 @@ const IDLE_STATUS: UpdaterStatus = {
   progress: null,
   lastCheck: null,
   skipVersion: null,
+  autoDownload: true,
   message: null
 }
 
@@ -58,20 +59,21 @@ export const useSettingsStore = defineStore('settings', {
     async loadAll(): Promise<void> {
       this.loadError = false
       try {
-        const [tray, shortcuts, updater, notifications, launchAtLogin, appVersion, platform] = await Promise.all([
-          window.api.store.get('tray'),
-          window.api.store.get('shortcuts'),
-          window.api.store.get('updater'),
-          window.api.store.get('notifications'),
-          window.api.app.getLoginItem(),
-          window.api.app.getVersion(),
-          window.api.app.getPlatform()
-        ])
-        this.closeToTray = tray.closeToTray
+        const [closeToTray, shortcuts, updater, notificationsEnabled, launchAtLogin, appVersion, platform] =
+          await Promise.all([
+            window.api.tray.getCloseToTray(),
+            window.api.shortcuts.list(),
+            window.api.updater.getStatus(),
+            window.api.notification.getEnabled(),
+            window.api.app.getLoginItem(),
+            window.api.app.getVersion(),
+            window.api.app.getPlatform()
+          ])
+        this.closeToTray = closeToTray
         this.shortcuts = shortcuts
         this.updaterAutoDownload = updater.autoDownload
         this.updaterSkipVersion = updater.skipVersion
-        this.notificationsEnabled = notifications.enabled
+        this.notificationsEnabled = notificationsEnabled
         this.launchAtLogin = launchAtLogin
         this.appVersion = appVersion
         this.platform = platform
@@ -86,7 +88,7 @@ export const useSettingsStore = defineStore('settings', {
       const prev = this.closeToTray
       this.closeToTray = v
       try {
-        await window.api.store.set('tray', { closeToTray: v })
+        await window.api.tray.setCloseToTray(v)
       } catch (e) {
         this.closeToTray = prev
         throw e
@@ -121,8 +123,7 @@ export const useSettingsStore = defineStore('settings', {
       const prev = this.updaterAutoDownload
       this.updaterAutoDownload = v
       try {
-        const cur = await window.api.store.get('updater')
-        await window.api.store.set('updater', { ...cur, autoDownload: v })
+        await window.api.updater.setAutoDownload(v)
       } catch (e) {
         this.updaterAutoDownload = prev
         throw e

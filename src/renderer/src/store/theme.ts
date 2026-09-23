@@ -37,7 +37,7 @@ function syncNativeTheme(dark: boolean): void {
 
 /**
  * 主题 Store：暗黑模式 + 主色。用户偏好属于非敏感数据，用 localStorage 即可
- * （区别于 token / refreshToken 用 secureStorage）。
+ * （认证 token 仅由主进程会话持有）。
  */
 export const useThemeStore = defineStore('theme', {
   state: (): ThemeState => loadFromStorage(),

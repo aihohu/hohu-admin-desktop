@@ -6,7 +6,6 @@ import naive from 'naive-ui'
 import App from './App.vue'
 import { router } from './router'
 import { permission } from './directives/permission'
-import { loadTokens } from './service/token'
 import { i18n } from './locales'
 import { useThemeStore } from './store/theme'
 import { setupTabPersist } from './store/tab'
@@ -19,12 +18,6 @@ async function bootstrap(): Promise<void> {
 
   // 注册 tab store 的持久化 watcher（必须在 pinia 注册之后）
   setupTabPersist()
-
-  // ⚠️ 在 app.use(router) 之前预热 token，避免守卫首次导航的 IPC 延迟
-  // 游客模式（AUTH_REQUIRED=false）下没 token 可读，跳过 IPC
-  if (import.meta.env.RENDERER_VITE_AUTH_REQUIRED !== 'false') {
-    await loadTokens()
-  }
 
   // 把 localStorage 的 darkMode 同步到主进程 nativeTheme，让原生标题栏 / scrollbar 跟随
   useThemeStore().initNativeTheme()

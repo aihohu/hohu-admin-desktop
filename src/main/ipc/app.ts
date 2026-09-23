@@ -1,5 +1,7 @@
-import { app, ipcMain } from 'electron'
+import { app } from 'electron'
 import type { Platform } from '@shared/types'
+import { requireBoolean } from '../services/security-policy'
+import { trustedHandle } from './security'
 
 /**
  * App IPC 通道：暴露 Electron `app` 模块的部分 API 给渲染层。
@@ -15,16 +17,17 @@ export const APP_CHANNELS = {
 } as const
 
 export function registerAppIpc(): void {
-  ipcMain.handle(APP_CHANNELS.GET_VERSION, (): string => app.getVersion())
+  trustedHandle(APP_CHANNELS.GET_VERSION, (): string => app.getVersion())
 
-  ipcMain.handle(APP_CHANNELS.GET_PLATFORM, (): Platform => process.platform as Platform)
+  trustedHandle(APP_CHANNELS.GET_PLATFORM, (): Platform => process.platform as Platform)
 
-  ipcMain.handle(APP_CHANNELS.GET_LOGIN_ITEM, (): boolean => {
+  trustedHandle(APP_CHANNELS.GET_LOGIN_ITEM, (): boolean => {
     return app.getLoginItemSettings().openAtLogin
   })
 
-  ipcMain.handle(APP_CHANNELS.SET_LOGIN_ITEM, (_e, enabled: boolean): boolean => {
-    app.setLoginItemSettings({ openAtLogin: enabled })
+  trustedHandle(APP_CHANNELS.SET_LOGIN_ITEM, (_e, enabled: unknown): boolean => {
+    const normalized = requireBoolean(enabled, 'login-item setting')
+    app.setLoginItemSettings({ openAtLogin: normalized })
     // 返回实际生效状态（Linux 上 setLoginItemSettings 是 no-op，getLoginItemSettings 仍返回 false）
     return app.getLoginItemSettings().openAtLogin
   })

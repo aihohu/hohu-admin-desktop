@@ -127,6 +127,10 @@ class UpdaterManagerClass {
     logger.info(`skipped version ${version}`)
   }
 
+  setAutoDownload(enabled: boolean): void {
+    store.set('updater', { ...store.get('updater'), autoDownload: enabled })
+  }
+
   getStatus(): UpdaterStatus {
     return {
       state: this.state,
@@ -134,6 +138,7 @@ class UpdaterManagerClass {
       progress: this.pendingProgress,
       lastCheck: store.get('updater').lastCheck,
       skipVersion: store.get('updater').skipVersion,
+      autoDownload: store.get('updater').autoDownload,
       message: this.errorMessage
     }
   }

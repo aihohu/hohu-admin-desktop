@@ -1,26 +1,33 @@
-import { ipcMain, type WebContents } from 'electron'
+import type { WebContents } from 'electron'
 import type { UpdaterEvent } from '@shared/types'
 import { updaterManager } from '../services/updater'
+import { normalizeUpdaterVersion, requireBoolean } from '../services/security-policy'
+import { trustedHandle } from './security'
 
 const subscriptions = new Map<WebContents, (e: UpdaterEvent) => void>()
 
 export function registerUpdaterIpc(): void {
-  ipcMain.handle('updater:check', async (_e, forced?: boolean) => {
-    await updaterManager.check(!!forced)
+  trustedHandle('updater:check', async (_e, forced?: unknown) => {
+    const normalized = forced === undefined ? false : requireBoolean(forced, 'forced update check')
+    await updaterManager.check(normalized)
     return updaterManager.getStatus()
   })
 
-  ipcMain.handle('updater:install', async () => {
+  trustedHandle('updater:install', async () => {
     updaterManager.install()
   })
 
-  ipcMain.handle('updater:skipVersion', async (_e, version: string) => {
-    updaterManager.skipVersion(version)
+  trustedHandle('updater:skipVersion', async (_e, version: unknown) => {
+    updaterManager.skipVersion(normalizeUpdaterVersion(version))
   })
 
-  ipcMain.handle('updater:getStatus', async () => updaterManager.getStatus())
+  trustedHandle('updater:setAutoDownload', async (_e, enabled: unknown) => {
+    updaterManager.setAutoDownload(requireBoolean(enabled, 'auto-download setting'))
+  })
 
-  ipcMain.handle('updater:subscribe', event => {
+  trustedHandle('updater:getStatus', async () => updaterManager.getStatus())
+
+  trustedHandle('updater:subscribe', event => {
     const webContents = event.sender as WebContents
     // 已有订阅先清掉，避免同一 webContents 重复订阅
     const existing = subscriptions.get(webContents)
@@ -47,7 +54,7 @@ export function registerUpdaterIpc(): void {
     webContents.once('destroyed', cleanup)
   })
 
-  ipcMain.handle('updater:unsubscribe', event => {
+  trustedHandle('updater:unsubscribe', event => {
     const webContents = event.sender as WebContents
     const listener = subscriptions.get(webContents)
     if (listener) {

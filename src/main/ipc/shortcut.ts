@@ -1,6 +1,7 @@
-import { ipcMain } from 'electron'
 import { store } from '@main/services/store'
 import { shortcutManager } from '@main/services/shortcut'
+import { normalizeShortcutUpdate } from '../services/security-policy'
+import { trustedHandle } from './security'
 
 /**
  * Shortcut IPC 通道。
@@ -13,8 +14,9 @@ export const SHORTCUT_CHANNELS = {
 } as const
 
 export function registerShortcutIpc(): void {
-  ipcMain.handle(SHORTCUT_CHANNELS.LIST, () => store.get('shortcuts'))
-  ipcMain.handle(SHORTCUT_CHANNELS.UPDATE, (_e, action: string, accelerator: string) => {
-    return shortcutManager.update(action, accelerator)
+  trustedHandle(SHORTCUT_CHANNELS.LIST, () => store.get('shortcuts'))
+  trustedHandle(SHORTCUT_CHANNELS.UPDATE, (_e, action: unknown, accelerator: unknown) => {
+    const normalized = normalizeShortcutUpdate(action, accelerator)
+    return shortcutManager.update(normalized.action, normalized.accelerator)
   })
 }

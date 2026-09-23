@@ -36,7 +36,7 @@ Three-process Electron layout with a shared types module:
 src/
 ├── main/              # Main process (Node.js runtime)
 │   ├── index.ts       # Entry: app lifecycle, window, IPC registration
-│   ├── services/      # Stateless services (http, secure-store, ...)
+│   ├── services/      # Auth session, security policy, HTTP transport, desktop services
 │   └── ipc/           # ipcMain.handle registrations (typed)
 ├── preload/           # Preload scripts (sandboxed bridge)
 │   ├── index.ts       # contextBridge.exposeInMainWorld('api', ...)
@@ -49,7 +49,6 @@ src/
 │       ├── service/       # Request layer + API wrappers
 │       │   ├── request/   # createFlatRequest factory
 │       │   ├── api/       # Endpoint wrappers (auth, ...)
-│       │   └── token.ts   # Token cache + secureStore bridge
 │       ├── typings/       # Global TS namespaces (Api.*, Response, etc.)
 │       └── main.ts        # createApp entry
 └── shared/            # Cross-process type definitions
@@ -58,24 +57,25 @@ src/
 
 ### Key Architectural Decisions
 
-1. **HTTP goes through main process** (not axios in renderer)
-   - Renderer calls `window.api.http.request(config)` → IPC → main process `net.request` → backend
+1. **Authenticated HTTP goes through a constrained main-process session**
+   - Renderer calls `window.api.auth.request(config)` with a relative path
+   - Main pins the backend origin, rejects redirects and renderer-supplied authorization headers, then injects the access token
    - **Bypasses browser CORS** in dev; behaves identically in prod
    - No axios dependency in renderer; `qs` only used in main process
-   - See `src/main/services/http.ts` and `src/renderer/src/service/request/factory.ts`
+   - See `src/main/services/auth-session.ts`, `security-policy.ts`, and `http.ts`
 
 2. **Typed IPC bridge**
    - Shared types live in `src/shared/types.ts` — imported via `@shared/types` alias
    - Preload exposes a strict whitelist via `contextBridge`; never expose `ipcRenderer` directly
    - Adding a new IPC channel: define type in shared, add handler in `src/main/ipc/`, expose in `src/preload/index.ts`
 
-3. **Token storage uses OS keychain** (not localStorage)
+3. **Tokens remain opaque to renderer code**
    - `safeStorage` (Electron built-in) encrypts with macOS Keychain / Windows DPAPI / Linux libsecret
    - File-backed at `userData/secure-store.json` (mode 0600)
-   - Renderer accesses via `window.api.secureStore.get/set/delete/clear` (async IPC)
-   - See `src/main/services/secure-store.ts`
+   - Login, refresh, authorization injection, logout revocation, and token storage are owned by `AuthSession`
+   - Renderer receives only `{ authenticated: boolean }`; generic secure-storage IPC is not exposed
 
-4. **Preload sandbox** — currently `sandbox: false` (scaffold default), `contextIsolation: true`, `nodeIntegration: false`. Tightening to `sandbox: true` is a Phase 2 task (pending `@electron-toolkit/preload` compatibility check).
+4. **Preload sandbox** — `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`, and `webviewTag: false`. Preload is bundled as CommonJS and exposes feature-specific methods only.
 
 ## Backend Integration
 
@@ -111,8 +111,8 @@ Flat request shape: `const { data, error } = await fetchLogin(...)` — no try/c
 **Business code handling** is centralized in `service/request/index.ts`:
 
 - Success: `String(code) === SERVICE_SUCCESS_CODE` (env-driven, code may be `number` or `string`)
-- Expired token codes (e.g. `9999,9998,3333`): trigger single-flight refresh, retry once
-- Logout codes (e.g. `401`): clear tokens, renderer redirects to login
+- Expired token codes trigger a main-process single-flight refresh and one retry
+- Logout codes clear the main-process session; renderer redirects to login
 
 ## Environment Variables
 
@@ -122,18 +122,17 @@ All renderer env vars use `RENDERER_VITE_` prefix (electron-vite convention):
 # .env (shared across modes)
 RENDERER_VITE_SERVICE_SUCCESS_CODE=200
 RENDERER_VITE_SERVICE_LOGOUT_CODES=401
-RENDERER_VITE_SERVICE_EXPIRED_TOKEN_CODES=9999,9998,3333
 RENDERER_VITE_STORAGE_PREFIX=hoHu_
 
 # .env.development
-RENDERER_VITE_SERVICE_BASE_URL=http://127.0.0.1:8000
+MAIN_VITE_BACKEND_ORIGIN=http://127.0.0.1:8000
 # 路由模式：dynamic（后端拉菜单，默认）| static（前端写死，适合 fork 做独立应用）
 RENDERER_VITE_ROUTE_MODE=dynamic
 # 是否需要登录：true（默认）| false（游客模式，跳过登录直接进 home，mock Guest 用户 + R_ADMIN 角色）
 RENDERER_VITE_AUTH_REQUIRED=true
 
 # .env.production
-RENDERER_VITE_SERVICE_BASE_URL=https://api.hohu.org
+MAIN_VITE_BACKEND_ORIGIN=https://api.hohu.org
 RENDERER_VITE_ROUTE_MODE=dynamic
 ```
 
@@ -158,7 +157,7 @@ Configured in `tsconfig.{node,web}.json` (paths) and `electron.vite.config.ts` (
 ## Security
 
 - **CSP** is set in `src/renderer/index.html`. To allow new origins (e.g. image CDNs, WebSocket), edit the `connect-src` / `img-src` directives.
-- **External links** opened via `shell.openExternal` — currently allows all URLs. Tighten in `src/main/index.ts` if needed (filter by protocol).
+- **External links** opened via `shell.openExternal` accept credential-free HTTPS URLs only.
 - **DevTools**: F12 toggle in dev, disabled in prod (via `@electron-toolkit/utils` optimizer).
 
 ## Common Pitfalls
@@ -166,11 +165,11 @@ Configured in `tsconfig.{node,web}.json` (paths) and `electron.vite.config.ts` (
 1. **Backend `code` is `number`, env codes are strings** — always compare with `String(code) === SERVICE_SUCCESS_CODE`. The `Response.code` type in `typings/app.d.ts` is `number` to match backend reality.
 2. **CSP blocks API calls** — adding a new backend domain requires updating `connect-src` in `index.html`. Reload the dev server (not just Cmd+R) after CSP changes.
 3. **electron-vite's `server.proxy` is broken** ([Issue #631](https://github.com/alex8088/electron-vite/issues/631)) — that's why we route HTTP through the main process instead.
-4. **Token never persists to localStorage** — only to `safeStorage`. After logout, `secure-store.json` is cleared.
+4. **Token never enters renderer storage or memory** — the main-process `AuthSession` owns `safeStorage`, refresh, and logout revocation.
 5. **Restart `pnpm dev` after editing** `electron.vite.config.ts`, `tsconfig.*.json`, `.env*`, or any file under `src/main/` or `src/preload/` (HMR only covers renderer).
 6. **Preload runs before renderer** — `useMessage()` and similar NaiveUI composables must be called inside `<NMessageProvider>` children, not in the same component that mounts the provider.
 7. **`X-Request-Id`** header is auto-injected by `nanoid()` for tracing.
-8. **Token refresh uses single-flight** — concurrent requests that hit expired-token code share one refresh Promise (see `state.refreshTokenPromise` in `service/request/index.ts`).
+8. **Token refresh uses single-flight** — concurrent requests share a revision-bound refresh Promise in `main/services/auth-session.ts`; logout invalidates in-flight refresh work.
 9. **Renderer dark mode does NOT affect native UI** — the macOS title bar background, native scrollbar, and native context menu color are controlled by `nativeTheme` (main-process-only API). The renderer's `darkMode` toggle only affects NaiveUI. Use the `theme:setNativeSource` IPC bridge in `src/main/ipc/theme.ts` to sync — the theme store calls it in `setDark/toggleDark/initNativeTheme`. Forget this and dark mode looks half-applied.
 10. **ESM-only npm packages can't be `require()`'d** — electron-vite defaults to bundling main as CJS, which breaks pure-ESM packages (e.g. `electron-store` v11) with `TypeError: X is not a constructor`. Fix: `"type": "module"` in `package.json`, electron-vite auto-outputs ESM. Preload extension changes from `.js` to `.mjs`, so update any `preload: join(__dirname, '../preload/index.js')` references.
 11. **macOS 自动更新需要代码签名** — electron-updater 在 macOS 通过 `validateUpdate` 校验更新包签名，要求 app 自身已用 Developer ID Application 证书签名（`electron-builder.yml` 的 `Mac.identity` 配置）。当前未配置签名 → 能检测能下载，但安装被拒。公证（notarization）是 Apple 对**首次分发**的独立要求（外链 DMG 第一次运行），与自动更新流程无关。Windows NSIS / Linux AppImage 不受影响。
@@ -214,7 +213,7 @@ To skip hooks for WIP commits: `git commit --no-verify` (use sparingly).
 Phase 1 (foundation) — **complete**:
 
 - ✅ Project bootstrap (code conventions, CI, hooks, LICENSE)
-- ✅ Request layer (main-process HTTP forwarder, flat result shape)
+- ✅ Request layer (origin-pinned main-process auth transport, flat result shape)
 - ✅ Auth (JWT login, token refresh, Keychain storage, auto-login)
 - ✅ Dynamic routes + RBAC (memory history, glob component mapping, dual-mode dynamic/static, v-permission)
 - ✅ Layout + theme + i18n (dark mode, primary color, zh-cn/en-us, breadcrumb, sider collapse)
@@ -224,7 +223,7 @@ See `docs/framework-design.md` for the full roadmap and design rationale.
 ## What Not to Do
 
 1. **Don't re-introduce axios in renderer** — the architecture intentionally routes through main process for CORS bypass and unified logging hooks.
-2. **Don't store tokens in localStorage** — use `window.api.secureStore`.
+2. **Don't expose or store tokens in renderer code** — extend the main-process `AuthSession` instead.
 3. **Don't expose `ipcRenderer` directly in preload** — always wrap with a typed function via `contextBridge`.
 4. **Don't edit `src/preload/index.d.ts` to add new IPC types** — add them in `src/shared/types.ts` instead, then import.
 5. **Don't use relative paths for shared modules** — use `@shared/*`, `@renderer/*`, `@main/*` aliases.
