@@ -51,7 +51,7 @@ The renderer boots on `http://localhost:5173`; the Electron window opens automat
 pnpm typecheck && pnpm lint && pnpm fmt && git diff --exit-code
 ```
 
-And a commit-msg hook that validates Conventional Commits format. To skip for WIP: `git commit --no-verify` (use sparingly).
+A commit-msg hook validates Conventional Commits format. Do not bypass hooks with `--no-verify`; keep incomplete work uncommitted until the applicable checks pass.
 
 ## Conventions
 
@@ -106,4 +106,4 @@ Use the GitHub issue templates (bug report EN/CN, feature request EN/CN). Includ
 
 New contributions are licensed under [Apache License 2.0](./LICENSE), except where otherwise noted; contributors retain their copyright. Versions through v0.1.0 were previously released under the MIT license; that grant remains effective for copies already distributed (see [NOTICE](./NOTICE)). Retain applicable third-party copyright and license notices.
 
-Use `git commit -s` to add a DCO `Signed-off-by` line. DCO is not a copyright transfer. Keep the distribution copies in `resources/licenses/` identical to the root `LICENSE` and `NOTICE` files.
+Follow the [canonical commit policy](https://github.com/aihohu/hohu-admin/blob/main/docs/CONTRIBUTING.md#提交规范与授权): use one English `type(scope): description` sentence. Maintainers contributing their own work omit `Signed-off-by`, `Co-Authored-By`, and copyright trailers by default; external contributors still use `git commit -s`. Stage named files, do not bypass hooks or amend pushed commits, and obtain explicit authorization before committing or pushing. Do not sign on behalf of others. DCO is not a copyright transfer. Keep the distribution copies in `resources/licenses/` identical to the root `LICENSE` and `NOTICE` files.
